@@ -1,52 +1,9 @@
 import { encrypt_payload } from "./wasm";
 import { ethers } from "ethers";
-import { arrayify, hexlify, SigningKey, keccak256, recoverPublicKey, computeAddress, sha256 } from "ethers/lib/utils";
+import { arrayify, hexlify, SigningKey, keccak256, recoverPublicKey, computeAddress } from "ethers/lib/utils";
 import { Buffer } from "buffer/";
-import secureRandom from "secure-random";
-import {ecdh, chacha20_poly1305_seal, chacha20_poly1305_open, chacha20}  from "@solar-republic/neutrino";
-import {bytes, bytes_to_base64, dataview} from '@blake.regalia/belt';
-import {poly1305} from '@solar-republic/neutrino';
-
-// construct the poly1305 tag
-const poly1305_auth = (atu8_poly1305_key: Uint8Array, atu8_ciphertext: Uint8Array, atu8_aad: Uint8Array | undefined) => {
-	// normalize aad
-	atu8_aad ||= bytes(0);
-
-	// cache length of ciphertext and aad
-	let nb_ciphertext = atu8_ciphertext.length;
-	let nb_aad = atu8_aad.length;
-	let ib_ciphertext_write = (nb_aad-1 & ~15) + 16;
-
-	// compute total length of msg: +16 for ciphertext w/ padding, +8 for len(AAD), +8 for len(ciphertext)
-	let nb_msg = ib_ciphertext_write + (nb_ciphertext-1 & ~15) + 32;
-
-	// prep constructed message
-	let atu8_msg = bytes(nb_msg);
-
-	// prep DataView for writing le nums
-	let dv_msg = dataview(atu8_msg.buffer);
-
-	// padded aad
-	atu8_msg.set(atu8_aad);
-
-	// padded ciphertext
-	atu8_msg.set(atu8_ciphertext, ib_ciphertext_write);
-
-	// write length of aad and ciphertext as 32-bit little-endian integers (limited to 4 GiB each)
-	dv_msg.setUint32(nb_msg - 16, nb_aad, true);
-	dv_msg.setUint32(nb_msg - 8, nb_ciphertext, true);
-
-	// generate tag
-	return poly1305(atu8_poly1305_key, atu8_msg);
-};
-// encrypt/decrypt data and generate the poly1305 key
-const transcrypt = (atu8_key: Uint8Array, atu8_nonce: Uint8Array, atu8_data: Uint8Array): [Uint8Array, Uint8Array] => [
-	// poly1305 key generation
-	chacha20(atu8_key, atu8_nonce, bytes(32), 0),
-
-	// transcryption
-	chacha20(atu8_key, atu8_nonce, atu8_data, 1),
-];
+import {ecdh, chacha20_poly1305_seal, chacha20_poly1305_open}  from "@solar-republic/neutrino";
+import {bytes, bytes_to_base64, json_to_bytes, sha256, bytes_to_json, concat, text_to_bytes} from '@blake.regalia/belt';
 
 
 export function setupSubmit(element: HTMLButtonElement) {
@@ -86,7 +43,6 @@ export function setupSubmit(element: HTMLButtonElement) {
         })
 
         const user_address = myAddress
-        const user_key = Buffer.from(userPublicKeyBytes)
 
         // create the abi interface and encode the function data
         const abi = [{"type":"function","name":"callback","inputs":[{"name":"_taskId","type":"uint256","internalType":"uint256"},{"name":"_result","type":"bytes","internalType":"bytes"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"increaseTaskId","inputs":[{"name":"_newTaskId","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"initialize","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"owner","inputs":[],"outputs":[{"name":"","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"postExecution","inputs":[{"name":"_taskId","type":"uint256","internalType":"uint256"},{"name":"_sourceNetwork","type":"string","internalType":"string"},{"name":"_info","type":"tuple","internalType":"struct Gateway.PostExecutionInfo","components":[{"name":"payload_hash","type":"bytes32","internalType":"bytes32"},{"name":"packet_hash","type":"bytes32","internalType":"bytes32"},{"name":"callback_address","type":"bytes20","internalType":"bytes20"},{"name":"callback_selector","type":"bytes4","internalType":"bytes4"},{"name":"callback_gas_limit","type":"bytes4","internalType":"bytes4"},{"name":"packet_signature","type":"bytes","internalType":"bytes"},{"name":"result","type":"bytes","internalType":"bytes"}]}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"requestRandomness","inputs":[{"name":"_numWords","type":"uint32","internalType":"uint32"},{"name":"_callbackGasLimit","type":"uint32","internalType":"uint32"}],"outputs":[{"name":"requestId","type":"uint256","internalType":"uint256"}],"stateMutability":"payable"},{"type":"function","name":"send","inputs":[{"name":"_payloadHash","type":"bytes32","internalType":"bytes32"},{"name":"_userAddress","type":"address","internalType":"address"},{"name":"_routingInfo","type":"string","internalType":"string"},{"name":"_info","type":"tuple","internalType":"struct Gateway.ExecutionInfo","components":[{"name":"user_key","type":"bytes","internalType":"bytes"},{"name":"user_pubkey","type":"bytes","internalType":"bytes"},{"name":"routing_code_hash","type":"string","internalType":"string"},{"name":"task_destination_network","type":"string","internalType":"string"},{"name":"handle","type":"string","internalType":"string"},{"name":"nonce","type":"bytes12","internalType":"bytes12"},{"name":"payload","type":"bytes","internalType":"bytes"},{"name":"payload_signature","type":"bytes","internalType":"bytes"}]}],"outputs":[],"stateMutability":"payable"},{"type":"function","name":"taskId","inputs":[],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"tasks","inputs":[{"name":"","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"payload_hash_reduced","type":"bytes31","internalType":"bytes31"},{"name":"completed","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"event","name":"ComputedResult","inputs":[{"name":"taskId","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"result","type":"bytes","indexed":false,"internalType":"bytes"}],"anonymous":false},{"type":"event","name":"Initialized","inputs":[{"name":"version","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"logNewTask","inputs":[{"name":"task_id","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"source_network","type":"string","indexed":false,"internalType":"string"},{"name":"user_address","type":"address","indexed":false,"internalType":"address"},{"name":"routing_info","type":"string","indexed":false,"internalType":"string"},{"name":"payload_hash","type":"bytes32","indexed":false,"internalType":"bytes32"},{"name":"info","type":"tuple","indexed":false,"internalType":"struct Gateway.ExecutionInfo","components":[{"name":"user_key","type":"bytes","internalType":"bytes"},{"name":"user_pubkey","type":"bytes","internalType":"bytes"},{"name":"routing_code_hash","type":"string","internalType":"string"},{"name":"task_destination_network","type":"string","internalType":"string"},{"name":"handle","type":"string","internalType":"string"},{"name":"nonce","type":"bytes12","internalType":"bytes12"},{"name":"payload","type":"bytes","internalType":"bytes"},{"name":"payload_signature","type":"bytes","internalType":"bytes"}]}],"anonymous":false},{"type":"error","name":"CallbackError","inputs":[]},{"type":"error","name":"InvalidInitialization","inputs":[]},{"type":"error","name":"InvalidPacketSignature","inputs":[]},{"type":"error","name":"InvalidPayloadHash","inputs":[]},{"type":"error","name":"InvalidSignature","inputs":[]},{"type":"error","name":"InvalidSignatureLength","inputs":[]},{"type":"error","name":"InvalidSignatureSValue","inputs":[]},{"type":"error","name":"NotInitializing","inputs":[]},{"type":"error","name":"TaskAlreadyCompleted","inputs":[]}]
@@ -98,44 +54,65 @@ export function setupSubmit(element: HTMLButtonElement) {
         const _callbackSelector = iface.getSighash(iface.getFunction("callback"))
         const _callbackGasLimit = Number(callback_gas_limit)
 
-        const thePayload = JSON.stringify({
+        const payload = {
             data: data,
             routing_info: routing_contract,
             routing_code_hash: routing_code_hash,
             user_address: user_address,
-            user_key: user_key.toString('base64'),
-            callback_address: Buffer.from(arrayify(_callbackAddress)).toString('base64'),
-            callback_selector: Buffer.from(arrayify(_callbackSelector)).toString('base64'),
+            user_key: bytes_to_base64(userPublicKeyBytes),
+            callback_address: bytes_to_base64(arrayify(_callbackAddress)),
+            callback_selector: bytes_to_base64(arrayify(_callbackSelector)),
             callback_gas_limit: _callbackGasLimit,
-        })
-        console.log(thePayload)
+        }
+
+        const payloadJson = JSON.stringify(payload, null, '  ');
+
+        console.log(payload)
         
-        const plaintext = Buffer.from(thePayload);
-        const nonce = secureRandom(12, { type: "Uint8Array" });
+        const plaintext = json_to_bytes(payload);
+        const nonce = crypto.getRandomValues(bytes(12));
         const handle = "request_random"
 
-        const ciphertext = Buffer.from(
-        encrypt_payload(
-             gatewayPublicKeyBytes,
-             userPrivateKeyBytes,
-             plaintext,
-             nonce
-         ));
-        const ciphertext2 = transcrypt(ecdh(userPrivateKeyBytes, gatewayPublicKeyBytes), nonce, plaintext)[1]
-        console.log(ciphertext)
-        console.log(ciphertext2)
-        // Use TextDecoder to decode the Uint8Array into a string
-        const decoder = new TextDecoder("ASCII"); // Default is 'utf-8'
-        console.log(decoder.decode(plaintext))
-        console.log(decoder.decode(transcrypt(ecdh(userPrivateKeyBytes, gatewayPublicKeyBytes),nonce , ciphertext)[1]))
-        //console.log(decoder.decode(chacha20_poly1305_open(ecdh(userPrivateKeyBytes, gatewayPublicKeyBytes), nonce, poly1305_auth(chacha20(ecdh(userPrivateKeyBytes, gatewayPublicKeyBytes), nonce, bytes(32), 0), ciphertext, undefined), ciphertext)))
-        //if not encrypted, just use the plaintext bytes
-        //const ciphertext = plaintext
+        const bundleContract = encrypt_payload(
+            gatewayPublicKeyBytes,
+            userPrivateKeyBytes,
+            plaintext,
+            nonce
+        );
+
+        // the rust chacha20poly1305 crate concats `ciphertext || tag[16]`; separate them out
+        const ciphertextContract = bundleContract.subarray(0, -16);
+        const tagContract = bundleContract.subarray(-16);
+        
+        // generate the shared key
+        const sharedKey = await sha256(ecdh(userPrivateKeyBytes, gatewayPublicKeyBytes));
+
+        // in case you wanted a sanity check
+        COMPARE_CIPHERTEXTS:
+        {
+            const [ciphertextClient, tagClient] = chacha20_poly1305_seal(sharedKey, nonce, plaintext);
+
+            console.log(`Ciphertexts match? `, bytes_to_base64(ciphertextContract) === bytes_to_base64(ciphertextClient));
+            console.log(`Tags match? `, bytes_to_base64(tagContract) === bytes_to_base64(tagClient));
+        }
+
+        // decrypt payload from contract
+        const openedPlaintext = chacha20_poly1305_open(sharedKey, nonce, tagContract, ciphertextContract);
+
+        // decode
+        const openedPayload = bytes_to_json(openedPlaintext);
+
+        console.log(openedPayload);
     
         //get Metamask to sign the payloadhash with personal_sign
-        const ciphertextHash = keccak256(Buffer.from(ciphertext))
+        const ciphertextHash = keccak256(bundleContract)
+
         //this is what metamask really signs with personal_sign, it prepends the ethereum signed message here
-        const payloadHash = keccak256(Buffer.concat([Buffer.from("\x19Ethereum Signed Message:\n32"),Buffer.from(ciphertextHash.substring(2),'hex')]))
+        const payloadHash = keccak256(concat([
+            text_to_bytes("\x19Ethereum Signed Message:\n32"),
+            arrayify(ciphertextHash),
+        ]))
+
         //this is what we provide to metamask
         const msgParams = ciphertextHash;
         const from = myAddress;
@@ -145,10 +122,10 @@ export function setupSubmit(element: HTMLButtonElement) {
 
         document.querySelector<HTMLDivElement>('#preview')!.innerHTML = `
         <h2>Raw Payload</h2>
-        <p>${thePayload}</p>
+        <p>${payloadJson}</p>
 
         <h2>TNLS Payload</h2>
-        <p>${ciphertext.toString('base64')}</p>
+        <p>${bytes_to_base64(bundleContract)}</p>
 
         <h2>Payload Hash</h2>
         <p>${payloadHash}<p>
@@ -163,10 +140,10 @@ export function setupSubmit(element: HTMLButtonElement) {
 
         document.querySelector<HTMLDivElement>('#preview')!.innerHTML = `
         <h2>Raw Payload</h2>
-        <p>${thePayload}</p>
+        <p>${payloadJson}</p>
 
         <h2>TNLS Payload</h2>
-        <p>${ciphertext.toString('base64')}</p>
+        <p>${bytes_to_base64(bundleContract)}</p>
 
         <h2>Payload Hash</h2>
         <p>${payloadHash}<p>
@@ -180,13 +157,13 @@ export function setupSubmit(element: HTMLButtonElement) {
         const _routingInfo = routing_contract
         const _payloadHash = payloadHash
         const _info = {
-            user_key: hexlify(user_key),
+            user_key: hexlify(userPublicKeyBytes),
             user_pubkey: user_pubkey, 
             routing_code_hash: routing_code_hash,
             task_destination_network: "secret-4",
             handle: handle,
             nonce: hexlify(nonce),
-            payload: hexlify(ciphertext),
+            payload: hexlify(bundleContract),
             payload_signature: payloadSignature
         }
                         
@@ -224,10 +201,10 @@ export function setupSubmit(element: HTMLButtonElement) {
 
         document.querySelector<HTMLDivElement>('#preview')!.innerHTML = `
         <h2>Raw Payload</h2>
-        <p>${thePayload}</p>
+        <p>${payloadJson}</p>
 
         <h2>TNLS Payload</h2>
-        <p>${ciphertext.toString('base64')}</p>
+        <p>${bytes_to_base64(bundleContract)}</p>
 
         <h2>Payload Hash</h2>
         <p>${payloadHash}<p>
