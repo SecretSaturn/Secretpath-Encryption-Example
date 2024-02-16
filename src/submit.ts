@@ -3,6 +3,51 @@ import { ethers } from "ethers";
 import { arrayify, hexlify, SigningKey, keccak256, recoverPublicKey, computeAddress, sha256 } from "ethers/lib/utils";
 import { Buffer } from "buffer/";
 import secureRandom from "secure-random";
+import {ecdh, chacha20_poly1305_seal, chacha20_poly1305_open, chacha20}  from "@solar-republic/neutrino";
+import {bytes, bytes_to_base64, dataview} from '@blake.regalia/belt';
+import {poly1305} from '@solar-republic/neutrino';
+
+// construct the poly1305 tag
+const poly1305_auth = (atu8_poly1305_key: Uint8Array, atu8_ciphertext: Uint8Array, atu8_aad: Uint8Array | undefined) => {
+	// normalize aad
+	atu8_aad ||= bytes(0);
+
+	// cache length of ciphertext and aad
+	let nb_ciphertext = atu8_ciphertext.length;
+	let nb_aad = atu8_aad.length;
+	let ib_ciphertext_write = (nb_aad-1 & ~15) + 16;
+
+	// compute total length of msg: +16 for ciphertext w/ padding, +8 for len(AAD), +8 for len(ciphertext)
+	let nb_msg = ib_ciphertext_write + (nb_ciphertext-1 & ~15) + 32;
+
+	// prep constructed message
+	let atu8_msg = bytes(nb_msg);
+
+	// prep DataView for writing le nums
+	let dv_msg = dataview(atu8_msg.buffer);
+
+	// padded aad
+	atu8_msg.set(atu8_aad);
+
+	// padded ciphertext
+	atu8_msg.set(atu8_ciphertext, ib_ciphertext_write);
+
+	// write length of aad and ciphertext as 32-bit little-endian integers (limited to 4 GiB each)
+	dv_msg.setUint32(nb_msg - 16, nb_aad, true);
+	dv_msg.setUint32(nb_msg - 8, nb_ciphertext, true);
+
+	// generate tag
+	return poly1305(atu8_poly1305_key, atu8_msg);
+};
+// encrypt/decrypt data and generate the poly1305 key
+const transcrypt = (atu8_key: Uint8Array, atu8_nonce: Uint8Array, atu8_data: Uint8Array): [Uint8Array, Uint8Array] => [
+	// poly1305 key generation
+	chacha20(atu8_key, atu8_nonce, bytes(32), 0),
+
+	// transcryption
+	chacha20(atu8_key, atu8_nonce, atu8_data, 1),
+];
+
 
 export function setupSubmit(element: HTMLButtonElement) {
 
@@ -76,7 +121,14 @@ export function setupSubmit(element: HTMLButtonElement) {
              plaintext,
              nonce
          ));
-
+        const ciphertext2 = transcrypt(ecdh(userPrivateKeyBytes, gatewayPublicKeyBytes), nonce, plaintext)[1]
+        console.log(ciphertext)
+        console.log(ciphertext2)
+        // Use TextDecoder to decode the Uint8Array into a string
+        const decoder = new TextDecoder("ASCII"); // Default is 'utf-8'
+        console.log(decoder.decode(plaintext))
+        console.log(decoder.decode(transcrypt(ecdh(userPrivateKeyBytes, gatewayPublicKeyBytes),nonce , ciphertext)[1]))
+        //console.log(decoder.decode(chacha20_poly1305_open(ecdh(userPrivateKeyBytes, gatewayPublicKeyBytes), nonce, poly1305_auth(chacha20(ecdh(userPrivateKeyBytes, gatewayPublicKeyBytes), nonce, bytes(32), 0), ciphertext, undefined), ciphertext)))
         //if not encrypted, just use the plaintext bytes
         //const ciphertext = plaintext
     

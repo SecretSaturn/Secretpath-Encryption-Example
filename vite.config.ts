@@ -11,4 +11,15 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  optimizeDeps: { // 👈 optimizedeps
+    esbuildOptions: {
+      target: "esnext", 
+      supported: { 
+        bigint: true 
+      },
+    }
+  }, 
+  build: {
+    target: ["esnext"], 
+  },
 });
