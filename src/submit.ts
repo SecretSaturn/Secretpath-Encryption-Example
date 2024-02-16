@@ -1,19 +1,16 @@
-import { encrypt_payload } from "./wasm";
 import { ethers } from "ethers";
 import { arrayify, hexlify, SigningKey, keccak256, recoverPublicKey, computeAddress } from "ethers/lib/utils";
 import { Buffer } from "buffer/";
-import {ecdh, chacha20_poly1305_seal, chacha20_poly1305_open}  from "@solar-republic/neutrino";
-import {bytes, bytes_to_base64, json_to_bytes, sha256, bytes_to_json, concat, text_to_bytes} from '@blake.regalia/belt';
+import {ecdh, chacha20_poly1305_seal}  from "@solar-republic/neutrino";
+import {bytes, bytes_to_base64, json_to_bytes, sha256, concat, text_to_bytes} from '@blake.regalia/belt';
 
 
 export function setupSubmit(element: HTMLButtonElement) {
 
-    const publicClientAddress = '0x874303B788c8A13a39EFA38ab6C3b77cd4578129'
-    const routing_contract = "secret1n8jh8qvjhu5ktce7v7ntlqac7u7wle6lvqnw38"
-    const routing_code_hash = "2a8c936d011446c0ae1f2503b4fb86455b7dc2c6899a56bd74edf9636f9517db"
+    const publicClientAddress = '0x3879E146140b627a5C858a08e507B171D9E43139' //EVM gateway contract address
 
-    // @ts-ignore
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    const routing_contract = "secret1fxs74g8tltrngq3utldtxu9yys5tje8dzdvghr" //the contract you want to call in secret
+    const routing_code_hash = "49ffed0df451622ac1865710380c14d4af98dca2d32342bb20f2b22faca3d00d" //its codehash
 
     // generating ephemeral keys
     const wallet = ethers.Wallet.createRandom();
@@ -22,18 +19,22 @@ export function setupSubmit(element: HTMLButtonElement) {
     const userPublicKeyBytes = arrayify(userPublicKey)
     //
 
-    //unencrypted input 
-    const gatewayPublicKey = "Ahc6gpaf7Gs3UBNDimUDFsfA7Om9sGRgV8NMYeJddS5r"; 
+    // //Encryption key for ChaChaPoly1305 Payload encryption
+    const gatewayPublicKey = "A20KrD7xDmkFXpNMqJn1CLpRaDLcdKpO1NdBBS7VpWh3";
     const gatewayPublicKeyBuffer = Buffer.from(gatewayPublicKey, "base64");
     const gatewayPublicKeyBytes = arrayify(gatewayPublicKeyBuffer);
 
     element.addEventListener("click", async function(event: Event){
         event.preventDefault()
-        const [myAddress] = await provider.send("eth_requestAccounts", []);
+
         await (window as any).ethereum.request({
             method: 'wallet_switchEthereumChain',
             params: [{ chainId: '0xAA36A7' }], // chainId must be in hexadecimal numbers
-          });
+        });
+
+        // @ts-ignore
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const [myAddress] = await provider.send("eth_requestAccounts", []);
         
         const numWords = document.querySelector<HTMLFormElement>('#input1')?.value;
         const callback_gas_limit = document.querySelector<HTMLFormElement>('#input2')?.value;
@@ -42,30 +43,28 @@ export function setupSubmit(element: HTMLButtonElement) {
             numWords: Number(numWords)
         })
 
-        const user_address = myAddress
-
         // create the abi interface and encode the function data
-        const abi = [{"type":"function","name":"callback","inputs":[{"name":"_taskId","type":"uint256","internalType":"uint256"},{"name":"_result","type":"bytes","internalType":"bytes"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"increaseTaskId","inputs":[{"name":"_newTaskId","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"initialize","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"owner","inputs":[],"outputs":[{"name":"","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"postExecution","inputs":[{"name":"_taskId","type":"uint256","internalType":"uint256"},{"name":"_sourceNetwork","type":"string","internalType":"string"},{"name":"_info","type":"tuple","internalType":"struct Gateway.PostExecutionInfo","components":[{"name":"payload_hash","type":"bytes32","internalType":"bytes32"},{"name":"packet_hash","type":"bytes32","internalType":"bytes32"},{"name":"callback_address","type":"bytes20","internalType":"bytes20"},{"name":"callback_selector","type":"bytes4","internalType":"bytes4"},{"name":"callback_gas_limit","type":"bytes4","internalType":"bytes4"},{"name":"packet_signature","type":"bytes","internalType":"bytes"},{"name":"result","type":"bytes","internalType":"bytes"}]}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"requestRandomness","inputs":[{"name":"_numWords","type":"uint32","internalType":"uint32"},{"name":"_callbackGasLimit","type":"uint32","internalType":"uint32"}],"outputs":[{"name":"requestId","type":"uint256","internalType":"uint256"}],"stateMutability":"payable"},{"type":"function","name":"send","inputs":[{"name":"_payloadHash","type":"bytes32","internalType":"bytes32"},{"name":"_userAddress","type":"address","internalType":"address"},{"name":"_routingInfo","type":"string","internalType":"string"},{"name":"_info","type":"tuple","internalType":"struct Gateway.ExecutionInfo","components":[{"name":"user_key","type":"bytes","internalType":"bytes"},{"name":"user_pubkey","type":"bytes","internalType":"bytes"},{"name":"routing_code_hash","type":"string","internalType":"string"},{"name":"task_destination_network","type":"string","internalType":"string"},{"name":"handle","type":"string","internalType":"string"},{"name":"nonce","type":"bytes12","internalType":"bytes12"},{"name":"payload","type":"bytes","internalType":"bytes"},{"name":"payload_signature","type":"bytes","internalType":"bytes"}]}],"outputs":[],"stateMutability":"payable"},{"type":"function","name":"taskId","inputs":[],"outputs":[{"name":"","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"tasks","inputs":[{"name":"","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"payload_hash_reduced","type":"bytes31","internalType":"bytes31"},{"name":"completed","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"event","name":"ComputedResult","inputs":[{"name":"taskId","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"result","type":"bytes","indexed":false,"internalType":"bytes"}],"anonymous":false},{"type":"event","name":"Initialized","inputs":[{"name":"version","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"logNewTask","inputs":[{"name":"task_id","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"source_network","type":"string","indexed":false,"internalType":"string"},{"name":"user_address","type":"address","indexed":false,"internalType":"address"},{"name":"routing_info","type":"string","indexed":false,"internalType":"string"},{"name":"payload_hash","type":"bytes32","indexed":false,"internalType":"bytes32"},{"name":"info","type":"tuple","indexed":false,"internalType":"struct Gateway.ExecutionInfo","components":[{"name":"user_key","type":"bytes","internalType":"bytes"},{"name":"user_pubkey","type":"bytes","internalType":"bytes"},{"name":"routing_code_hash","type":"string","internalType":"string"},{"name":"task_destination_network","type":"string","internalType":"string"},{"name":"handle","type":"string","internalType":"string"},{"name":"nonce","type":"bytes12","internalType":"bytes12"},{"name":"payload","type":"bytes","internalType":"bytes"},{"name":"payload_signature","type":"bytes","internalType":"bytes"}]}],"anonymous":false},{"type":"error","name":"CallbackError","inputs":[]},{"type":"error","name":"InvalidInitialization","inputs":[]},{"type":"error","name":"InvalidPacketSignature","inputs":[]},{"type":"error","name":"InvalidPayloadHash","inputs":[]},{"type":"error","name":"InvalidSignature","inputs":[]},{"type":"error","name":"InvalidSignatureLength","inputs":[]},{"type":"error","name":"InvalidSignatureSValue","inputs":[]},{"type":"error","name":"NotInitializing","inputs":[]},{"type":"error","name":"TaskAlreadyCompleted","inputs":[]}]
+        const abi = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[],"name":"InvalidBytesLength","type":"error"},{"inputs":[],"name":"InvalidInitialization","type":"error"},{"inputs":[],"name":"InvalidPacketSignature","type":"error"},{"inputs":[],"name":"InvalidPayloadHash","type":"error"},{"inputs":[],"name":"InvalidSignature","type":"error"},{"inputs":[],"name":"InvalidSignatureLength","type":"error"},{"inputs":[],"name":"NotInitializing","type":"error"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"OwnableInvalidOwner","type":"error"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"OwnableUnauthorizedAccount","type":"error"},{"inputs":[],"name":"PaidRequestFeeTooLow","type":"error"},{"inputs":[],"name":"TaskAlreadyCompleted","type":"error"},{"inputs":[],"name":"TooManyVRFRandomWordsRequested","type":"error"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint64","name":"version","type":"uint64"}],"name":"Initialized","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"previousOwner","type":"address"},{"indexed":true,"internalType":"address","name":"newOwner","type":"address"}],"name":"OwnershipTransferred","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"taskId","type":"uint256"},{"indexed":false,"internalType":"bool","name":"callbackSuccessful","type":"bool"}],"name":"TaskCompleted","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"task_id","type":"uint256"},{"indexed":false,"internalType":"string","name":"source_network","type":"string"},{"indexed":false,"internalType":"address","name":"user_address","type":"address"},{"indexed":false,"internalType":"string","name":"routing_info","type":"string"},{"indexed":false,"internalType":"bytes32","name":"payload_hash","type":"bytes32"},{"components":[{"internalType":"bytes","name":"user_key","type":"bytes"},{"internalType":"bytes","name":"user_pubkey","type":"bytes"},{"internalType":"string","name":"routing_code_hash","type":"string"},{"internalType":"string","name":"task_destination_network","type":"string"},{"internalType":"string","name":"handle","type":"string"},{"internalType":"bytes12","name":"nonce","type":"bytes12"},{"internalType":"uint32","name":"callback_gas_limit","type":"uint32"},{"internalType":"bytes","name":"payload","type":"bytes"},{"internalType":"bytes","name":"payload_signature","type":"bytes"}],"indexed":false,"internalType":"struct Gateway.ExecutionInfo","name":"info","type":"tuple"}],"name":"logNewTask","type":"event"},{"inputs":[{"internalType":"uint256","name":"_newTaskId","type":"uint256"}],"name":"increaseTaskId","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"initialize","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"payoutBalance","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_taskId","type":"uint256"},{"internalType":"string","name":"_sourceNetwork","type":"string"},{"components":[{"internalType":"bytes32","name":"payload_hash","type":"bytes32"},{"internalType":"bytes32","name":"packet_hash","type":"bytes32"},{"internalType":"bytes20","name":"callback_address","type":"bytes20"},{"internalType":"bytes4","name":"callback_selector","type":"bytes4"},{"internalType":"bytes4","name":"callback_gas_limit","type":"bytes4"},{"internalType":"bytes","name":"packet_signature","type":"bytes"},{"internalType":"bytes","name":"result","type":"bytes"}],"internalType":"struct Gateway.PostExecutionInfo","name":"_info","type":"tuple"}],"name":"postExecution","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"renounceOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint32","name":"_numWords","type":"uint32"},{"internalType":"uint32","name":"_callbackGasLimit","type":"uint32"}],"name":"requestRandomness","outputs":[{"internalType":"uint256","name":"requestId","type":"uint256"}],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"bytes32","name":"_payloadHash","type":"bytes32"},{"internalType":"address","name":"_userAddress","type":"address"},{"internalType":"string","name":"_routingInfo","type":"string"},{"components":[{"internalType":"bytes","name":"user_key","type":"bytes"},{"internalType":"bytes","name":"user_pubkey","type":"bytes"},{"internalType":"string","name":"routing_code_hash","type":"string"},{"internalType":"string","name":"task_destination_network","type":"string"},{"internalType":"string","name":"handle","type":"string"},{"internalType":"bytes12","name":"nonce","type":"bytes12"},{"internalType":"uint32","name":"callback_gas_limit","type":"uint32"},{"internalType":"bytes","name":"payload","type":"bytes"},{"internalType":"bytes","name":"payload_signature","type":"bytes"}],"internalType":"struct Gateway.ExecutionInfo","name":"_info","type":"tuple"}],"name":"send","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"taskId","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"tasks","outputs":[{"internalType":"bytes31","name":"payload_hash_reduced","type":"bytes31"},{"internalType":"bool","name":"completed","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"newOwner","type":"address"}],"name":"transferOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"upgradeHandler","outputs":[],"stateMutability":"nonpayable","type":"function"}]
         const iface= new ethers.utils.Interface( abi )
-        const FormatTypes = ethers.utils.FormatTypes;
-        console.log(iface.format(FormatTypes.full))
 
-        const _callbackAddress = publicClientAddress.toLowerCase();
-        const _callbackSelector = iface.getSighash(iface.getFunction("callback"))
-        const _callbackGasLimit = Number(callback_gas_limit)
+        const callbackAddress = publicClientAddress.toLowerCase();
+        //This is an empty callback for the sake of having a callback in the sample code.
+        //Here, you would put your callback selector for you contract in. 
+        const callbackSelector = iface.getSighash(iface.getFunction("upgradeHandler"))
+        const callbackGasLimit = Number(callback_gas_limit)
 
         const payload = {
             data: data,
             routing_info: routing_contract,
             routing_code_hash: routing_code_hash,
-            user_address: user_address,
+            user_address: myAddress,
             user_key: bytes_to_base64(userPublicKeyBytes),
-            callback_address: bytes_to_base64(arrayify(_callbackAddress)),
-            callback_selector: bytes_to_base64(arrayify(_callbackSelector)),
-            callback_gas_limit: _callbackGasLimit,
+            callback_address: bytes_to_base64(arrayify(callbackAddress)),
+            callback_selector: bytes_to_base64(arrayify(callbackSelector)),
+            callback_gas_limit: callbackGasLimit,
         }
 
-        const payloadJson = JSON.stringify(payload, null, '  ');
+        const payloadJson = JSON.stringify(payload);
 
         console.log(payload)
         
@@ -73,36 +72,12 @@ export function setupSubmit(element: HTMLButtonElement) {
         const nonce = crypto.getRandomValues(bytes(12));
         const handle = "request_random"
 
-        const bundleContract = encrypt_payload(
-            gatewayPublicKeyBytes,
-            userPrivateKeyBytes,
-            plaintext,
-            nonce
-        );
-
-        // the rust chacha20poly1305 crate concats `ciphertext || tag[16]`; separate them out
-        const ciphertextContract = bundleContract.subarray(0, -16);
-        const tagContract = bundleContract.subarray(-16);
-        
-        // generate the shared key
+        //create the sharedKey via ECDH
         const sharedKey = await sha256(ecdh(userPrivateKeyBytes, gatewayPublicKeyBytes));
 
-        // in case you wanted a sanity check
-        COMPARE_CIPHERTEXTS:
-        {
-            const [ciphertextClient, tagClient] = chacha20_poly1305_seal(sharedKey, nonce, plaintext);
-
-            console.log(`Ciphertexts match? `, bytes_to_base64(ciphertextContract) === bytes_to_base64(ciphertextClient));
-            console.log(`Tags match? `, bytes_to_base64(tagContract) === bytes_to_base64(tagClient));
-        }
-
-        // decrypt payload from contract
-        const openedPlaintext = chacha20_poly1305_open(sharedKey, nonce, tagContract, ciphertextContract);
-
-        // decode
-        const openedPayload = bytes_to_json(openedPlaintext);
-
-        console.log(openedPayload);
+        //Encrypt the payload using ChachaPoly1305 and concat the ciphertext+tag to fit the Rust ChaChaPoly1305 requirements
+        const [ciphertextClient, tagClient] = chacha20_poly1305_seal(sharedKey, nonce, plaintext);
+        const bundleContract = concat([ciphertextClient, tagClient]);
     
         //get Metamask to sign the payloadhash with personal_sign
         const ciphertextHash = keccak256(bundleContract)
@@ -151,7 +126,6 @@ export function setupSubmit(element: HTMLButtonElement) {
         <h2>Payload Signature</h2>
         <p>${payloadSignature}<p>
         `
-
         // function data to be abi encoded
         const _userAddress = myAddress
         const _routingInfo = routing_contract
@@ -160,11 +134,12 @@ export function setupSubmit(element: HTMLButtonElement) {
             user_key: hexlify(userPublicKeyBytes),
             user_pubkey: user_pubkey, 
             routing_code_hash: routing_code_hash,
-            task_destination_network: "secret-4",
+            task_destination_network: "pulsar-3",  //Destination for the task, here: pulsar-3 testnet
             handle: handle,
             nonce: hexlify(nonce),
             payload: hexlify(bundleContract),
-            payload_signature: payloadSignature
+            payload_signature: payloadSignature,
+            callback_gas_limit: Number(callbackGasLimit)
         }
                         
  
@@ -172,9 +147,9 @@ export function setupSubmit(element: HTMLButtonElement) {
         _routingInfo: ${_routingInfo} 
         _payloadHash: ${_payloadHash} 
         _info: ${JSON.stringify(_info)}
-        _callbackAddress: ${_callbackAddress},
-        _callbackSelector: ${_callbackSelector} ,
-        _callbackGasLimit: ${_callbackGasLimit}`)
+        _callbackAddress: ${callbackAddress},
+        _callbackSelector: ${callbackSelector} ,
+        _callbackGasLimit: ${callbackGasLimit}`)
 
         const functionData = iface.encodeFunctionData("send",
             [
@@ -184,20 +159,26 @@ export function setupSubmit(element: HTMLButtonElement) {
                 _info,
             ]
         )
-        console.log(functionData)
+        
+
+        //Then calculate how much gas you have to pay for the callback
+        //Forumla: callbackGasLimit*block.basefee.
+        //Use an appropriate overhead for the transaction, 1,5x = 3/2 is recommended since gasPrice fluctuates.
+
+        const gasFee = await provider.getGasPrice();
+        const amountOfGas = gasFee.mul(callbackGasLimit).mul(3).div(2);
 
         const tx_params = [
             {
                 gas: '0x249F0', // 150000
                 to: publicClientAddress,
                 from: myAddress,
-                value: '0x00', // 0
-                data: functionData, // TODO figure out what this data is meant to be
+                value: hexlify(amountOfGas), // send that extra amount of gas in to pay for the Callback Gas Limit that you set
+                data: functionData, 
             },
           ];
 
         const txHash = await provider.send("eth_sendTransaction", tx_params);
-        console.log(txHash)
 
         document.querySelector<HTMLDivElement>('#preview')!.innerHTML = `
         <h2>Raw Payload</h2>
@@ -221,12 +202,9 @@ export function setupSubmit(element: HTMLButtonElement) {
         </p>
 
         <h2>Transaction Parameters</h2>
-        <p><b>Tx Hash: </b><a href="https://polygonscan.com/tx/${txHash}" target="_blank">${txHash}</a></p>
-        <p><b>Gateway Address (to check the postExecution callback) </b><a href="https://polygonscan.com/address/${publicClientAddress}" target="_blank">${publicClientAddress}</a></p>
+        <p><b>Tx Hash: </b><a href="https://sepolia.etherscan.io/tx/${txHash}" target="_blank">${txHash}</a></p>
+        <p><b>Gateway Address (to check the postExecution callback) </b><a href="https://sepolia.etherscan.io/address/${publicClientAddress}" target="_blank">${publicClientAddress}</a></p>
         <p style="font-size: 0.8em;">${JSON.stringify(tx_params)}</p>
         `
     })
 }
-//  <p><b>Tx Hash: </b><a href="https://sepolia.etherscan.io/tx/${txHash}" target="_blank">${txHash}</a></p>
-//<p><b>Gateway Address (to check the postExecution callback) </b><a href="https://sepolia.etherscan.io/address/${publicClientAddress}" target="_blank">${publicClientAddress}</a></p>
-//<p style="font-size: 0.8em;">${JSON.stringify(tx_params)}</p>
