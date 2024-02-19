@@ -52,6 +52,10 @@ export function setupSubmit(element: HTMLButtonElement) {
         //create the sharedKey via ECDH
         const sharedKey = await sha256(ecdh(userPrivateKeyBytes, gatewayPublicKeyBytes));
 
+        //the function name of the function that is called on the private contract
+        const handle = "request_random"
+
+        //payload data that are going to be encrypted
         const payload = {
             data: data,
             routing_info: routing_contract,
@@ -63,20 +67,20 @@ export function setupSubmit(element: HTMLButtonElement) {
             callback_gas_limit: callbackGasLimit,
         }
 
+        //build a Json of the payload
         const payloadJson = JSON.stringify(payload);
-
-        console.log(payload)
-        
         const plaintext = json_to_bytes(payload);
+
+        //generate a nonce for ChaCha20-Poly1305 encryption 
+        //DO NOT skip this, stream cipher encryptions are only secure with a random nonce!
         const nonce = crypto.getRandomValues(bytes(12));
-        const handle = "request_random"
 
         //Encrypt the payload using ChachaPoly1305 and concat the ciphertext+tag to fit the Rust ChaChaPoly1305 requirements
         const [ciphertextClient, tagClient] = chacha20_poly1305_seal(sharedKey, nonce, plaintext);
-        const bundleContract = concat([ciphertextClient, tagClient]);
+        const ciphertext = concat([ciphertextClient, tagClient]);
     
         //get Metamask to sign the payloadhash with personal_sign
-        const ciphertextHash = keccak256(bundleContract)
+        const ciphertextHash = keccak256(ciphertext)
 
         //this is what metamask really signs with personal_sign, it prepends the ethereum signed message here
         const payloadHash = keccak256(concat([
@@ -96,7 +100,7 @@ export function setupSubmit(element: HTMLButtonElement) {
         <p>${payloadJson}</p>
 
         <h2>TNLS Payload</h2>
-        <p>${bytes_to_base64(bundleContract)}</p>
+        <p>${bytes_to_base64(ciphertext)}</p>
 
         <h2>Payload Hash</h2>
         <p>${payloadHash}<p>
@@ -114,7 +118,7 @@ export function setupSubmit(element: HTMLButtonElement) {
         <p>${payloadJson}</p>
 
         <h2>TNLS Payload</h2>
-        <p>${bytes_to_base64(bundleContract)}</p>
+        <p>${bytes_to_base64(ciphertext)}</p>
 
         <h2>Payload Hash</h2>
         <p>${payloadHash}<p>
@@ -133,7 +137,7 @@ export function setupSubmit(element: HTMLButtonElement) {
             task_destination_network: "pulsar-3",  //Destination for the task, here: pulsar-3 testnet
             handle: handle,
             nonce: hexlify(nonce),
-            payload: hexlify(bundleContract),
+            payload: hexlify(ciphertext),
             payload_signature: payloadSignature,
             callback_gas_limit: Number(callbackGasLimit)
         }
