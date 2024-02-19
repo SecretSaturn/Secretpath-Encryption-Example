@@ -24,6 +24,9 @@ export function setupSubmit(element: HTMLButtonElement) {
     const gatewayPublicKeyBuffer = Buffer.from(gatewayPublicKey, "base64");
     const gatewayPublicKeyBytes = arrayify(gatewayPublicKeyBuffer);
 
+    //create the sharedKey via ECDH
+    const sharedKey = await sha256(ecdh(userPrivateKeyBytes, gatewayPublicKeyBytes));
+
     element.addEventListener("click", async function(event: Event){
         event.preventDefault()
 
@@ -71,9 +74,6 @@ export function setupSubmit(element: HTMLButtonElement) {
         const plaintext = json_to_bytes(payload);
         const nonce = crypto.getRandomValues(bytes(12));
         const handle = "request_random"
-
-        //create the sharedKey via ECDH
-        const sharedKey = await sha256(ecdh(userPrivateKeyBytes, gatewayPublicKeyBytes));
 
         //Encrypt the payload using ChachaPoly1305 and concat the ciphertext+tag to fit the Rust ChaChaPoly1305 requirements
         const [ciphertextClient, tagClient] = chacha20_poly1305_seal(sharedKey, nonce, plaintext);
