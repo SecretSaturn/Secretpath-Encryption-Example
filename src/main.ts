@@ -4,19 +4,19 @@ import { setupSubmit } from './submit'
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 <header>
-  <h1>Atbash Labs</h1>
+  <h1>Atbash Labs x Secret Network</h1>
   <div id="links">
-    <a href="">
+    <a href="https://uploads-ssl.webflow.com/632b43ea48475213272bcef4/632dd73d6dfc1b0cba06bbd6_Snakepath_whitepaper.pdf" target="_blank">
     <div class="card">
       Whitepaper
     </div>
     </a>
-    <a href="">
+    <a href="https://github.com/SecretSaturn/TNLS" target="_blank">
     <div class="card">
       GitHub
     </div>
     </a>
-    <a href="">
+    <a href="https://docs.scrt.network/secret-network-documentation/development/ethereum-evm-developer-toolkit/connecting-evm-with-snakepath" target="_blank">
     <div class="card">
       Docs
     </div>
