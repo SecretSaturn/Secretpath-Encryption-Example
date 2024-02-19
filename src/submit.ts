@@ -1,8 +1,7 @@
 import { ethers } from "ethers";
 import { arrayify, hexlify, SigningKey, keccak256, recoverPublicKey, computeAddress } from "ethers/lib/utils";
-import { Buffer } from "buffer/";
 import {ecdh, chacha20_poly1305_seal}  from "@solar-republic/neutrino";
-import {bytes, bytes_to_base64, json_to_bytes, sha256, concat, text_to_bytes} from '@blake.regalia/belt';
+import {bytes, bytes_to_base64, json_to_bytes, sha256, concat, text_to_bytes, base64_to_bytes} from '@blake.regalia/belt';
 
 
 export function setupSubmit(element: HTMLButtonElement) {
@@ -11,21 +10,6 @@ export function setupSubmit(element: HTMLButtonElement) {
 
     const routing_contract = "secret1fxs74g8tltrngq3utldtxu9yys5tje8dzdvghr" //the contract you want to call in secret
     const routing_code_hash = "49ffed0df451622ac1865710380c14d4af98dca2d32342bb20f2b22faca3d00d" //its codehash
-
-    // generating ephemeral keys
-    const wallet = ethers.Wallet.createRandom();
-    const userPrivateKeyBytes = arrayify(wallet.privateKey);
-    const userPublicKey: string = new SigningKey(wallet.privateKey).compressedPublicKey;
-    const userPublicKeyBytes = arrayify(userPublicKey)
-    //
-
-    // //Encryption key for ChaChaPoly1305 Payload encryption
-    const gatewayPublicKey = "A20KrD7xDmkFXpNMqJn1CLpRaDLcdKpO1NdBBS7VpWh3";
-    const gatewayPublicKeyBuffer = Buffer.from(gatewayPublicKey, "base64");
-    const gatewayPublicKeyBytes = arrayify(gatewayPublicKeyBuffer);
-
-    //create the sharedKey via ECDH
-    const sharedKey = await sha256(ecdh(userPrivateKeyBytes, gatewayPublicKeyBytes));
 
     element.addEventListener("click", async function(event: Event){
         event.preventDefault()
@@ -55,6 +39,19 @@ export function setupSubmit(element: HTMLButtonElement) {
         //Here, you would put your callback selector for you contract in. 
         const callbackSelector = iface.getSighash(iface.getFunction("upgradeHandler"))
         const callbackGasLimit = Number(callback_gas_limit)
+
+        //Generating ephemeral keys
+        const wallet = ethers.Wallet.createRandom();
+        const userPrivateKeyBytes = arrayify(wallet.privateKey);
+        const userPublicKey: string = new SigningKey(wallet.privateKey).compressedPublicKey;
+        const userPublicKeyBytes = arrayify(userPublicKey)
+
+        //Gateway Encryption key for ChaCha20-Poly1305 Payload encryption
+        const gatewayPublicKey = "A20KrD7xDmkFXpNMqJn1CLpRaDLcdKpO1NdBBS7VpWh3";
+        const gatewayPublicKeyBytes = base64_to_bytes(gatewayPublicKey);
+
+        //create the sharedKey via ECDH
+        const sharedKey = await sha256(ecdh(userPrivateKeyBytes, gatewayPublicKeyBytes));
 
         const payload = {
             data: data,
