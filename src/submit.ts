@@ -26,19 +26,6 @@ export function setupSubmit(element: HTMLButtonElement) {
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const [myAddress] = await provider.send("eth_requestAccounts", []);
         
-        const numWords = document.querySelector<HTMLFormElement>('#input1')?.value;
-        const callback_gas_limit = document.querySelector<HTMLFormElement>('#input2')?.value;
-        
-        const data = JSON.stringify({
-            numWords: Number(numWords)
-        })
-
-        const callbackAddress = publicClientAddress.toLowerCase();
-        //This is an empty callback for the sake of having a callback in the sample code.
-        //Here, you would put your callback selector for you contract in. 
-        const callbackSelector = iface.getSighash(iface.getFunction("upgradeHandler"))
-        const callbackGasLimit = Number(callback_gas_limit)
-
         //Generating ephemeral keys
         const wallet = ethers.Wallet.createRandom();
         const userPrivateKeyBytes = arrayify(wallet.privateKey);
@@ -51,6 +38,19 @@ export function setupSubmit(element: HTMLButtonElement) {
 
         //create the sharedKey via ECDH
         const sharedKey = await sha256(ecdh(userPrivateKeyBytes, gatewayPublicKeyBytes));
+
+        const numWords = document.querySelector<HTMLFormElement>('#input1')?.value;
+        const callback_gas_limit = document.querySelector<HTMLFormElement>('#input2')?.value;
+        
+        const data = JSON.stringify({
+            numWords: Number(numWords)
+        })
+
+        const callbackAddress = publicClientAddress.toLowerCase();
+        //This is an empty callback for the sake of having a callback in the sample code.
+        //Here, you would put your callback selector for you contract in. 
+        const callbackSelector = iface.getSighash(iface.getFunction("upgradeHandler"))
+        const callbackGasLimit = Number(callback_gas_limit)
 
         //the function name of the function that is called on the private contract
         const handle = "request_random"
