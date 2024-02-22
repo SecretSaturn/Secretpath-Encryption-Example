@@ -170,7 +170,7 @@ export function setupSubmit(element: HTMLButtonElement) {
 
         const tx_params = [
             {
-                gas: '0x249F0', // 150000
+                gas: hexlify(150000),
                 to: publicClientAddress,
                 from: myAddress,
                 value: hexlify(amountOfGas), // send that extra amount of gas in to pay for the Callback Gas Limit that you set
