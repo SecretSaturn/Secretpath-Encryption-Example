@@ -185,7 +185,7 @@ export function setupSubmit(element: HTMLButtonElement) {
         <p>${payloadJson}</p>
 
         <h2>TNLS Payload</h2>
-        <p>${bytes_to_base64(bundleContract)}</p>
+        <p>${bytes_to_base64(ciphertext)}</p>
 
         <h2>Payload Hash</h2>
         <p>${payloadHash}<p>
