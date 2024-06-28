@@ -12,6 +12,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@coral-xyz/anchor": "^0.30.0",
+    "@solana/web3.js": "^1.93.0",
     "@solar-republic/cosmos-grpc": "^0.14.2",
     "@solar-republic/neutrino": "^1.0.8",
     "ethers": "^5.7.2",
