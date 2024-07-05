@@ -241,15 +241,6 @@
       ],
       "args": [
         {
-          "name": "payload_hash",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
           "name": "user_address",
           "type": "pubkey"
         },

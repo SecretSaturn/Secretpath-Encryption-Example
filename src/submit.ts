@@ -1,7 +1,7 @@
 import { ethers } from "ethers";
 import {ecdh, chacha20_poly1305_seal}  from "@solar-republic/neutrino";
 import {bytes, bytes_to_base64, json_to_bytes, sha256, concat, text_to_bytes, base64_to_bytes} from '@blake.regalia/belt';
-import { Connection, PublicKey, Keypair, Transaction, SystemProgram } from '@solana/web3.js';
+import { Connection, PublicKey, Keypair, Transaction, SystemProgram, TransactionConfirmationStrategy } from '@solana/web3.js';
 import { getBytes, hexlify, SigningKey, keccak256, computeAddress  } from 'ethers';
 import { AnchorProvider, Program, Wallet, web3 } from '@coral-xyz/anchor';
 import idl from './solana_gateway.json';
@@ -137,7 +137,6 @@ export function setupSubmit(element: HTMLButtonElement) {
         
         const { blockhash } = await connection.getRecentBlockhash('finalized');
         const tx2 = await program.methods.send(
-            payloadHash,
             provider.publicKey,
             routing_contract,
             executionInfo,
@@ -158,7 +157,12 @@ export function setupSubmit(element: HTMLButtonElement) {
         
         // Send the signed transaction
         const signature = await connection.sendRawTransaction(signedTx.serialize());
-        await connection.confirmTransaction(signature);
+
+        const strategy: TransactionConfirmationStrategy = {
+            signature: signature, // Your transaction signature
+            // Add any additional parameters for the strategy if needed
+        };
+        const transaction = await connection.confirmTransaction(strategy);
         
         console.log('Final result after rpc:', tx2);
         console.log(tx2)
@@ -171,7 +175,7 @@ export function setupSubmit(element: HTMLButtonElement) {
         <p>${bytes_to_base64(ciphertext)}</p>
 
         <h2>Payload Hash</h2>
-        <p>${payloadHash}<p>
+        <p>${bytes_to_base64(payloadHash)}<p>
         `
 
         console.log(`Payload Signature: ${payloadSignature}`)
@@ -183,20 +187,22 @@ export function setupSubmit(element: HTMLButtonElement) {
         <p>${bytes_to_base64(ciphertext)}</p>
 
         <h2>Payload Hash</h2>
-        <p>${payloadHash}<p>
+        <p>${bytes_to_base64(payloadHash)}<p>
 
         <h2>Payload Signature</h2>
-        <p>${payloadSignature}<p>
+        <p>${bytes_to_base64(payloadSignature.signature)}<p>
         `
                         
  
-        /*console.log(`_userAddress: ${_userAddress}
-        _routingInfo: ${_routingInfo} 
-        _payloadHash: ${_payloadHash} 
-        _info: ${JSON.stringify(_info)}
+        console.log(`_userAddress: ${provider.publicKey.toBase58()}
+        _routingInfo: ${routing_contract} 
+        _payloadHash: ${payloadHash} 
+        _info: ${JSON.stringify(executionInfo)}
         _callbackAddress: ${callbackAddress},
         _callbackSelector: ${callbackSelector} ,
-        _callbackGasLimit: ${callbackGasLimit}`)*/
+        _callbackGasLimit: ${callbackGasLimit}`)
+
+        console.log(transaction)
 
 
         document.querySelector<HTMLDivElement>('#preview')!.innerHTML = `
@@ -207,23 +213,22 @@ export function setupSubmit(element: HTMLButtonElement) {
         <p>${bytes_to_base64(ciphertext)}</p>
 
         <h2>Payload Hash</h2>
-        <p>${payloadHash}<p>
+        <p>${bytes_to_base64(payloadHash)}<p>
 
         <h2>Payload Signature</h2>
-        <p>${payloadSignature}<p>
+        <p>${bytes_to_base64(payloadSignature.signature)}<p>
 
         <h2>Other Info</h2>
         <p>
 
-        <b>Public key used during encryption:</b> ${userPublicKey} <br>
-        <b>Nonce used during encryption:</b> ${nonce} <br>
+        <b>Public key used during encryption:</b> ${bytes_to_base64(userPublicKeyBytes)} <br>
+        <b>Nonce used during encryption:</b> ${bytes_to_base64(nonce)} <br>
 
         </p>
 
         <h2>Transaction Parameters</h2>
-        <p><b>Tx Hash: </b><a href="https://sepolia.etherscan.io/tx/" target="_blank">${""}</a></p>
-        <p><b>Gateway Address (to check the postExecution callback) </b><a href="https://sepolia.etherscan.io/address/${publicClientAddress}" target="_blank">${publicClientAddress}</a></p>
-        <p style="font-size: 0.8em;">${JSON.stringify("")}</p>
+        <p><b>Tx Hash: </b><a href="https://solscan.io/tx/${signature}?cluster=devnet" target="_blank">${signature}</a></p>
+        <p><b>Gateway Address (to check the postExecution callback) </b><a href="https://solscan.io/account/${program.programId}?cluster=devnet" target="_blank">${program.programId}</a></p>
         `
     })
 }
