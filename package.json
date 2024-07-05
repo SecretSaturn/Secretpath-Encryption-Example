@@ -16,7 +16,8 @@
     "@solana/web3.js": "^1.93.0",
     "@solar-republic/cosmos-grpc": "^0.14.2",
     "@solar-republic/neutrino": "^1.0.8",
-    "ethers": "^5.7.2",
+    "buffer": "^6.0.3",
+    "ethers": "^6.13.1",
     "secure-random": "^1.1.2"
   },
   "devDependencies": {

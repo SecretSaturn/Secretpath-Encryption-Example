@@ -1,5 +1,5 @@
 {
-  "address": "Fz1E7g4ebTVDH4EXijcRbBcgxntivQJfTGePEwZyie9B",
+  "address": "5LWZAN7ZFE3Rmg4MdjqNTRkSbMxthyG8ouSa3cfn3R6V",
   "metadata": {
     "name": "solana_gateway",
     "version": "0.1.0",
@@ -22,20 +22,43 @@
       "accounts": [
         {
           "name": "gateway_state",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  97,
+                  116,
+                  101,
+                  119,
+                  97,
+                  121,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "owner",
-          "signer": true,
-          "relations": [
-            "gateway_state"
-          ]
+          "signer": true
         }
       ],
       "args": [
         {
           "name": "new_task_id",
           "type": "u64"
+        },
+        {
+          "name": "bump",
+          "type": "u8"
         }
       ]
     },
@@ -55,7 +78,28 @@
         {
           "name": "gateway_state",
           "writable": true,
-          "signer": true
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  97,
+                  116,
+                  101,
+                  119,
+                  97,
+                  121,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "owner",
@@ -67,7 +111,12 @@
           "address": "11111111111111111111111111111111"
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "bump",
+          "type": "u8"
+        }
+      ]
     },
     {
       "name": "post_execution",
@@ -84,7 +133,29 @@
       "accounts": [
         {
           "name": "gateway_state",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  97,
+                  116,
+                  101,
+                  119,
+                  97,
+                  121,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "user",
@@ -112,6 +183,10 @@
               "name": "PostExecutionInfo"
             }
           }
+        },
+        {
+          "name": "bump",
+          "type": "u8"
         }
       ]
     },
@@ -130,7 +205,29 @@
       "accounts": [
         {
           "name": "gateway_state",
-          "writable": true
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  97,
+                  116,
+                  101,
+                  119,
+                  97,
+                  121,
+                  95,
+                  115,
+                  116,
+                  97,
+                  116,
+                  101
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "user",
@@ -167,6 +264,10 @@
               "name": "ExecutionInfo"
             }
           }
+        },
+        {
+          "name": "bump",
+          "type": "u8"
         }
       ],
       "returns": {
@@ -334,6 +435,10 @@
           {
             "name": "max_tasks",
             "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
           }
         ]
       }

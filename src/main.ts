@@ -1,17 +1,21 @@
 import './style.css'
 import { setupConnect } from './connect'
 import { setupSubmit } from './submit'
+import { Buffer } from 'buffer';
+
+// Polyfill Buffer for browser environment
+window.Buffer = Buffer;
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 <header>
-  <h1>Atbash Labs x Secret Network</h1>
+  <h1>Secret Network for Solana</h1>
   <div id="links">
     <a href="https://uploads-ssl.webflow.com/632b43ea48475213272bcef4/632dd73d6dfc1b0cba06bbd6_Snakepath_whitepaper.pdf" target="_blank">
     <div class="card">
       Whitepaper
     </div>
     </a>
-    <a href="https://github.com/SecretSaturn/TNLS" target="_blank">
+    <a href="https://github.com/SecretSaturn/SecretPath" target="_blank">
     <div class="card">
       GitHub
     </div>
