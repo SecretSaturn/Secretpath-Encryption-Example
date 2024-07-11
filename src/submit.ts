@@ -1,26 +1,25 @@
 import { ethers } from "ethers";
 import {ecdh, chacha20_poly1305_seal}  from "@solar-republic/neutrino";
-import {bytes, bytes_to_base64, json_to_bytes, sha256, concat, text_to_bytes, base64_to_bytes} from '@blake.regalia/belt';
-import { Connection, PublicKey, Keypair, Transaction, SystemProgram, TransactionConfirmationStrategy } from '@solana/web3.js';
-import { getBytes, hexlify, SigningKey, keccak256, computeAddress  } from 'ethers';
-import { AnchorProvider, Program, Wallet, web3 } from '@coral-xyz/anchor';
+import {bytes_to_base64, json_to_bytes, sha256, concat, base64_to_bytes} from '@blake.regalia/belt';
+import { Connection} from '@solana/web3.js';
+import { getBytes, SigningKey, keccak256  } from 'ethers';
+import { AnchorProvider, Program, web3 } from '@coral-xyz/anchor';
 import idl from './solana_gateway.json';
 import { Buffer } from "buffer";
-import * as anchor from "@coral-xyz/anchor";
 
 
 export function setupSubmit(element: HTMLButtonElement) {
 
     // create the abi interface and encode the function data
 
-    const task_destination_network = "pulsar-3"
+    const task_destination_network = "pulsar-3";
 
     //Gateway Encryption key for ChaCha20-Poly1305 Payload encryption
-    const gatewayPublicKey = "AmpyieRcDuDUmQ+th5YkMzJ7Z6KByWsXt3gmfY46kKje";
+    const gatewayPublicKey = "AvDD5gDH97PEg96+j5ioOcLZMjDY+Fezwpjch2PCCK/N";
     const gatewayPublicKeyBytes = base64_to_bytes(gatewayPublicKey);
 
-    const routing_contract = "secret1t47prx0x4hjukc7u8kspdtkvxvr8u2ax80503d" //the contract you want to call in secret
-    const routing_code_hash = "be1c627ae66423dc10f4659a7193261ee6ac1a65911691cedc738641f2484006" //its codehash
+    const routing_contract = "secret15n9rw7leh9zc64uqpfxqz2ap3uz4r90e0uz3y3" //the contract you want to call in secret
+    const routing_code_hash = "3a2ea8c8d487aadb8f738d5941f29360caf5499bb6412f6cf9a9a856e90f7b50" //its codehash
 
     element.addEventListener("click", async function(event: Event){
         event.preventDefault()
@@ -144,7 +143,7 @@ export function setupSubmit(element: HTMLButtonElement) {
         .accounts({
             gatewayState: pda,
             user: provider.publicKey,
-            systemProgram: anchor.web3.SystemProgram.programId,
+            systemProgram: web3.SystemProgram.programId,
             })
         .transaction(); 
   

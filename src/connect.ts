@@ -1,10 +1,8 @@
 import { AnchorProvider } from '@coral-xyz/anchor';
 import { Connection } from '@solana/web3.js';
-import { ethers } from 'ethers';
 
 export function setupConnect(element: HTMLButtonElement) {
   element.innerHTML = `Connect`
-  let myAddress : string
   const connect = async () => {
     // @ts-ignore
     const getProvider = () => {
