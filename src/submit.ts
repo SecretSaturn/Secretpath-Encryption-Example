@@ -7,7 +7,6 @@ import { AnchorProvider, Program, Wallet, web3 } from '@coral-xyz/anchor';
 import idl from './solana_gateway.json';
 import { Buffer } from "buffer";
 import * as anchor from "@coral-xyz/anchor";
-import { sign } from "crypto";
 
 
 export function setupSubmit(element: HTMLButtonElement) {
@@ -16,13 +15,12 @@ export function setupSubmit(element: HTMLButtonElement) {
 
     const task_destination_network = "pulsar-3"
 
-
     //Gateway Encryption key for ChaCha20-Poly1305 Payload encryption
-    const gatewayPublicKey = "A3omfGvhFXBAvRm4k6H9liZuaD2kbwC0qzqVlmKqMcGR";
+    const gatewayPublicKey = "AmpyieRcDuDUmQ+th5YkMzJ7Z6KByWsXt3gmfY46kKje";
     const gatewayPublicKeyBytes = base64_to_bytes(gatewayPublicKey);
 
-    const routing_contract = "secret1tqq75wwsmta7v73myrwftd96yxaypmnm0f00wj" //the contract you want to call in secret
-    const routing_code_hash = "49ffed0df451622ac1865710380c14d4af98dca2d32342bb20f2b22faca3d00d" //its codehash
+    const routing_contract = "secret1t47prx0x4hjukc7u8kspdtkvxvr8u2ax80503d" //the contract you want to call in secret
+    const routing_code_hash = "be1c627ae66423dc10f4659a7193261ee6ac1a65911691cedc738641f2484006" //its codehash
 
     element.addEventListener("click", async function(event: Event){
         event.preventDefault()
@@ -32,7 +30,7 @@ export function setupSubmit(element: HTMLButtonElement) {
         // Check for Phantom wallet
         const getProvider = () => {
             if ("solana" in window) {
-                const provider = window.solana;
+                const provider = window.solana as any;
                 if (provider.isPhantom) {
                     return provider;
                 }
@@ -53,6 +51,7 @@ export function setupSubmit(element: HTMLButtonElement) {
         };
           
         const anchorProvider = new AnchorProvider(connection, wallet, { preflightCommitment: "processed" });
+        //@ts-ignore
         const program = new Program(idl, anchorProvider);
         
         
@@ -153,16 +152,16 @@ export function setupSubmit(element: HTMLButtonElement) {
         tx2.recentBlockhash = blockhash;
         tx2.feePayer = provider.publicKey;
         // Sign the transaction using Phantom wallet
-        const signedTx = await window.solana.signTransaction(tx2);
+        const signedTx = await provider.signTransaction(tx2);
         
         // Send the signed transaction
         const signature = await connection.sendRawTransaction(signedTx.serialize());
 
-        const strategy: TransactionConfirmationStrategy = {
+        const strategy = {
             signature: signature, // Your transaction signature
             // Add any additional parameters for the strategy if needed
         };
-        const transaction = await connection.confirmTransaction(strategy);
+        const transaction = await connection.confirmTransaction(strategy as any);
         
         console.log('Final result after rpc:', tx2);
         console.log(tx2)
@@ -171,7 +170,7 @@ export function setupSubmit(element: HTMLButtonElement) {
         <h2>Raw Payload</h2>
         <p>${bytes_to_base64(plaintext)}</p>
 
-        <h2>TNLS Payload</h2>
+        <h2>Secretpath Payload</h2>
         <p>${bytes_to_base64(ciphertext)}</p>
 
         <h2>Payload Hash</h2>
