@@ -1,12 +1,11 @@
-import { ethers } from "ethers";
 import {ecdh, chacha20_poly1305_seal}  from "@solar-republic/neutrino";
 import {bytes_to_base64, json_to_bytes, sha256, concat, base64_to_bytes} from '@blake.regalia/belt';
 import { Connection} from '@solana/web3.js';
-import { getBytes, SigningKey, keccak256  } from 'ethers';
 import { AnchorProvider, Program, web3 } from '@coral-xyz/anchor';
 import idl from './solana_gateway.json';
 import { Buffer } from "buffer";
-
+import { keccak256 } from "js-sha3";
+import { SigningKey, ethers } from "ethers";
 
 export function setupSubmit(element: HTMLButtonElement) {
 
@@ -19,7 +18,7 @@ export function setupSubmit(element: HTMLButtonElement) {
     const gatewayPublicKeyBytes = base64_to_bytes(gatewayPublicKey);
 
     const routing_contract = "secret15n9rw7leh9zc64uqpfxqz2ap3uz4r90e0uz3y3" //the contract you want to call in secret
-    const routing_code_hash = "3a2ea8c8d487aadb8f738d5941f29360caf5499bb6412f6cf9a9a856e90f7b50" //its codehash
+    const routing_code_hash = "931a6fa540446ca028955603fa4b924790cd3c65b3893196dc686de42b833f9c" //its codehash
 
     element.addEventListener("click", async function(event: Event){
         event.preventDefault()
@@ -43,6 +42,7 @@ export function setupSubmit(element: HTMLButtonElement) {
         } else {
             await provider.connect(); // Connect to the wallet
         }
+
         const wallet = {
             publicKey: provider.publicKey,
             signTransaction: provider.signTransaction.bind(provider),
@@ -56,10 +56,10 @@ export function setupSubmit(element: HTMLButtonElement) {
         
         //Generating ephemeral keys
         const walletEpheremal = ethers.Wallet.createRandom();
-        const userPrivateKeyBytes = getBytes(walletEpheremal.privateKey);
+        const userPrivateKeyBytes = Buffer.from(walletEpheremal.privateKey.slice(2), "hex");
         const userPublicKey: string = new SigningKey(walletEpheremal.privateKey).compressedPublicKey;
-        const userPublicKeyBytes = getBytes(userPublicKey)
-    
+        const userPublicKeyBytes = Buffer.from(userPublicKey.slice(2), "hex")
+
         const sharedKey = await sha256(ecdh(userPrivateKeyBytes, gatewayPublicKeyBytes));
 
         const numWords = document.querySelector<HTMLFormElement>('#input1')?.value;
@@ -72,8 +72,9 @@ export function setupSubmit(element: HTMLButtonElement) {
           const callbackAddress = "HZy2bXo1NmcTWURJvk9c8zofqE2MUvpu7wU722o7gtEN";
           //This is an empty callback for the sake of having a callback in the sample code.
           //Here, you would put your callback selector for you contract in. 
-         //const callbackSelector = iface.getSighash(iface.getFunction("upgradeHandler"))
+          const functionIdenfitfier = "0x00"
           const callbackSelector = "0x00"
+          
           const callbackGasLimit = Number(callback_gas_limit)
   
           //the function name of the function that is called on the private contract
@@ -87,7 +88,7 @@ export function setupSubmit(element: HTMLButtonElement) {
               user_address: provider.publicKey.toBase58(),
               user_key: Buffer.from(userPublicKeyBytes).toString('base64'),
               callback_address: callbackAddress,
-              callback_selector: Buffer.from(new Uint8Array(8)).toString('base64'),
+              callback_selector: Buffer.from(callbackSelector).toString('base64'),
               callback_gas_limit: callbackGasLimit,
           }
          
@@ -103,7 +104,7 @@ export function setupSubmit(element: HTMLButtonElement) {
           const ciphertext = concat([ciphertextClient, tagClient]);
       
           //this is what metamask really signs with personal_sign, it prepends the ethereum signed message here
-          const payloadHash = Buffer.from(getBytes(keccak256(ciphertext)));
+          const payloadHash = Buffer.from(keccak256.arrayBuffer(ciphertext));
           
           const payloadHashBase64 = Buffer.from(payloadHash).toString('base64');
           console.log(payloadHashBase64);
@@ -111,9 +112,6 @@ export function setupSubmit(element: HTMLButtonElement) {
           // Sign the message
 
           const payloadSignature = await provider.signMessage(Buffer.from(payloadHashBase64));
-          console.log(payloadSignature.publicKey.toBuffer().toString('base64'))
-          console.log(payloadSignature.signature.toString('base64'))
-          console.log(provider.publicKey.toBuffer())
 
           const executionInfo = {
             userKey: Buffer.from(userPublicKeyBytes), // Replace with actual user key
@@ -127,7 +125,7 @@ export function setupSubmit(element: HTMLButtonElement) {
             payloadSignature: payloadSignature.signature, // Replace with actual payload signature, as a Buffer
         };
 
-        // Derive the PDA
+        // Derive the PDA / Programm Derived Address
         const [pda, bump] = web3.PublicKey.findProgramAddressSync(
             [Buffer.from("gateway_state")],
             program.programId
@@ -150,6 +148,7 @@ export function setupSubmit(element: HTMLButtonElement) {
         // Set the recent blockhash
         tx2.recentBlockhash = blockhash;
         tx2.feePayer = provider.publicKey;
+
         // Sign the transaction using Phantom wallet
         const signedTx = await provider.signTransaction(tx2);
         
@@ -160,10 +159,9 @@ export function setupSubmit(element: HTMLButtonElement) {
             signature: signature, // Your transaction signature
             // Add any additional parameters for the strategy if needed
         };
-        const transaction = await connection.confirmTransaction(strategy as any);
+        await connection.confirmTransaction(strategy as any);
         
         console.log('Final result after rpc:', tx2);
-        console.log(tx2)
   
         document.querySelector<HTMLDivElement>('#preview')!.innerHTML = `
         <h2>Raw Payload</h2>
@@ -189,8 +187,7 @@ export function setupSubmit(element: HTMLButtonElement) {
 
         <h2>Payload Signature</h2>
         <p>${bytes_to_base64(payloadSignature.signature)}<p>
-        `
-                        
+        ` 
  
         console.log(`_userAddress: ${provider.publicKey.toBase58()}
         _routingInfo: ${routing_contract} 
@@ -199,9 +196,6 @@ export function setupSubmit(element: HTMLButtonElement) {
         _callbackAddress: ${callbackAddress},
         _callbackSelector: ${callbackSelector} ,
         _callbackGasLimit: ${callbackGasLimit}`)
-
-        console.log(transaction)
-
 
         document.querySelector<HTMLDivElement>('#preview')!.innerHTML = `
         <h2>Raw Payload</h2>
