@@ -89,20 +89,23 @@ export function setupSubmit(element: HTMLButtonElement) {
       program.programId
     );
 
-    const callbackAddress = Buffer.concat([pda.toBuffer(),
-        Buffer.from("9iztXfscePZzyYRLQdYkTImn6m8FVZpAAAMKX7Atyys=",'base64')]).toString('base64');
+    //const callbackAddress = Buffer.concat([pda.toBuffer(),
+        //Buffer.from("9iztXfscePZzyYRLQdYkTImn6m8FVZpAAAMKX7Atyys=",'base64')]).toString('base64');
+
+    const callbackAddress = Buffer.concat([pda.toBuffer()]).toString('base64');
+
     //This is an empty callback for the sake of having a callback in the sample code.
     //Here, you would put your callback selector for you contract in.
 
-    // 8 bytes of the function Identifier = CallbackTest in the Secretpath Solana Contract
+    // 8 bytes of the function Identifier = CallbackTest in the SecretPath Solana Contract
     const functionIdenfitfier = [196, 61, 185, 224, 30, 229, 25, 52];
     const programId = program.programId.toBuffer();
+
     //Callback Selector is ProgramId (32 bytes) + function identifier (8 bytes) concatinated
     const callbackSelector = Buffer.concat([
       programId,
       Buffer.from(functionIdenfitfier),
     ]);
-    console.log(callbackSelector)
 
     const callbackGasLimit = Number(callback_gas_limit);
 
@@ -136,17 +139,13 @@ export function setupSubmit(element: HTMLButtonElement) {
     );
     const ciphertext = concat([ciphertextClient, tagClient]);
 
-    //this is what metamask really signs with personal_sign, it prepends the ethereum signed message here
+    //This is the payload hash
     const payloadHash = Buffer.from(keccak256.arrayBuffer(ciphertext));
 
-    const payloadHashBase64 = Buffer.from(payloadHash).toString("base64");
-    console.log(payloadHashBase64);
-
-    // Sign the message
-
-    const payloadSignature = await provider.signMessage(
-      Buffer.from(payloadHashBase64)
-    );
+    // Sign the message, which is the Base64 String of the Payload Hash 
+    // (and NOT) directly the payloadHash bytes (which is forbidden with Solana's signMessage method)
+    const payloadHashBase64 = Buffer.from(payloadHash.toString("base64"));
+    const payloadSignature = await provider.signMessage(payloadHashBase64);
 
     const executionInfo = {
       userKey: Buffer.from(userPublicKeyBytes), // Replace with actual user key
@@ -160,9 +159,12 @@ export function setupSubmit(element: HTMLButtonElement) {
       payloadSignature: payloadSignature.signature, // Replace with actual payload signature, as a Buffer
     };
 
-    const { blockhash } = await connection.getRecentBlockhash("finalized");
-    const tx2 = await program.methods
-      .send(provider.publicKey, routing_contract, executionInfo, bump)
+    //Get the latest blockhash
+    const { blockhash } = await connection.getLatestBlockhash("finalized");
+
+    //construct the transaction
+    const tx = await program.methods
+      .send(provider.publicKey, routing_contract, executionInfo)
       .accounts({
         gatewayState: pda,
         user: provider.publicKey,
@@ -171,11 +173,11 @@ export function setupSubmit(element: HTMLButtonElement) {
       .transaction();
 
     // Set the recent blockhash
-    tx2.recentBlockhash = blockhash;
-    tx2.feePayer = provider.publicKey;
+    tx.recentBlockhash = blockhash;
+    tx.feePayer = provider.publicKey;
 
     // Sign the transaction using Phantom wallet
-    const signedTx = await provider.signTransaction(tx2);
+    const signedTx = await provider.signTransaction(tx);
 
     // Send the signed transaction
     const signature = await connection.sendRawTransaction(signedTx.serialize());
@@ -186,7 +188,7 @@ export function setupSubmit(element: HTMLButtonElement) {
     };
     await connection.confirmTransaction(strategy as any);
 
-    console.log("Final result after rpc:", tx2);
+    console.log("Final result after rpc:", tx);
 
     document.querySelector<HTMLDivElement>("#preview")!.innerHTML = `
         <h2>Raw Payload</h2>
@@ -216,7 +218,7 @@ export function setupSubmit(element: HTMLButtonElement) {
 
     console.log(`_userAddress: ${provider.publicKey.toBase58()}
         _routingInfo: ${routing_contract} 
-        _payloadHash: ${payloadHash} 
+        _payloadHash: ${bytes_to_base64(payloadHash)} 
         _info: ${JSON.stringify(executionInfo)}
         _callbackAddress: ${callbackAddress},
         _callbackSelector: ${bytes_to_base64(callbackSelector)} ,

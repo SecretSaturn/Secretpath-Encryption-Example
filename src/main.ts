@@ -38,7 +38,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <br>
       <br>
       <label for="input2">Callback gas limit</label>
-      <input type="number" value="300000" id="input2" name="input2" />
+      <input type="number" value="500000" id="input2" name="input2" />
       <br>
 
     </div>
