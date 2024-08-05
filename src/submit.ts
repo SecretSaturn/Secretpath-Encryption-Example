@@ -83,28 +83,36 @@ export function setupSubmit(element: HTMLButtonElement) {
       numWords: Number(numWords),
     });
 
-    // Derive the PDA / Programm Derived Address
-    const [pda, bump] = web3.PublicKey.findProgramAddressSync(
+    // Derive the Gateway PDA / Programm Derived Address
+    const [gateway_pda, gateway_bump] = web3.PublicKey.findProgramAddressSync(
       [Buffer.from("gateway_state")],
       program.programId
     );
+    // Derive the Tasks PDA / Programm Derived Address
+     const [tasks_pda, task_bump] = web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("task_state")],
+      program.programId
+    );
 
-    //const callbackAddress = Buffer.concat([pda.toBuffer(),
-        //Buffer.from("9iztXfscePZzyYRLQdYkTImn6m8FVZpAAAMKX7Atyys=",'base64')]).toString('base64');
-
-    const callbackAddress = Buffer.concat([pda.toBuffer()]).toString('base64');
+    //Include the some address as a test (not needed here, you can add whatever you need to have for your dApp)
+    const testAddress = new web3.PublicKey(
+      "HZy2bXo1NmcTWURJvk9c8zofqE2MUvpu7wU722o7gtEN"
+    );
+    const callbackAddress = Buffer.concat([
+      testAddress.toBuffer(),
+    ]).toString("base64");
 
     //This is an empty callback for the sake of having a callback in the sample code.
     //Here, you would put your callback selector for you contract in.
 
     // 8 bytes of the function Identifier = CallbackTest in the SecretPath Solana Contract
-    const functionIdenfitfier = [196, 61, 185, 224, 30, 229, 25, 52];
+    const functionIdentifier = [196, 61, 185, 224, 30, 229, 25, 52];
     const programId = program.programId.toBuffer();
 
     //Callback Selector is ProgramId (32 bytes) + function identifier (8 bytes) concatinated
     const callbackSelector = Buffer.concat([
       programId,
-      Buffer.from(functionIdenfitfier),
+      Buffer.from(functionIdentifier),
     ]);
 
     const callbackGasLimit = Number(callback_gas_limit);
@@ -142,10 +150,35 @@ export function setupSubmit(element: HTMLButtonElement) {
     //This is the payload hash
     const payloadHash = Buffer.from(keccak256.arrayBuffer(ciphertext));
 
-    // Sign the message, which is the Base64 String of the Payload Hash 
+    document.querySelector<HTMLDivElement>("#preview")!.innerHTML = `
+    <h2>Raw Payload</h2>
+    <p>${JSON.stringify(payload)}</p>
+
+    <h2>Secretpath Payload</h2>
+    <p>${bytes_to_base64(ciphertext)}</p>
+
+    <h2>Payload Hash</h2>
+    <p>${bytes_to_base64(payloadHash)}<p>
+    `;
+
+    // Sign the message, which is the Base64 String of the Payload Hash
     // (and NOT) directly the payloadHash bytes (which is forbidden with Solana's signMessage method)
     const payloadHashBase64 = Buffer.from(payloadHash.toString("base64"));
     const payloadSignature = await provider.signMessage(payloadHashBase64);
+
+    document.querySelector<HTMLDivElement>("#preview")!.innerHTML = `
+        <h2>Raw Payload</h2>
+        <p>${JSON.stringify(payload)}</p>
+
+        <h2>Secretpath Payload</h2>
+        <p>${bytes_to_base64(ciphertext)}</p>
+
+        <h2>Payload Hash</h2>
+        <p>${bytes_to_base64(payloadHash)}<p>
+
+        <h2>Payload Signature</h2>
+        <p>${bytes_to_base64(payloadSignature.signature)}<p>
+        `;
 
     const executionInfo = {
       userKey: Buffer.from(userPublicKeyBytes), // Replace with actual user key
@@ -160,13 +193,14 @@ export function setupSubmit(element: HTMLButtonElement) {
     };
 
     //Get the latest blockhash
-    const { blockhash } = await connection.getLatestBlockhash("finalized");
+    const { blockhash } = await connection.getLatestBlockhash("confirmed");
 
     //construct the transaction
     const tx = await program.methods
       .send(provider.publicKey, routing_contract, executionInfo)
       .accounts({
-        gatewayState: pda,
+        gatewayState: gateway_pda,
+        taskState: tasks_pda,
         user: provider.publicKey,
         systemProgram: web3.SystemProgram.programId,
       })
@@ -186,35 +220,10 @@ export function setupSubmit(element: HTMLButtonElement) {
       signature: signature, // Your transaction signature
       // Add any additional parameters for the strategy if needed
     };
+
     await connection.confirmTransaction(strategy as any);
 
     console.log("Final result after rpc:", tx);
-
-    document.querySelector<HTMLDivElement>("#preview")!.innerHTML = `
-        <h2>Raw Payload</h2>
-        <p>${bytes_to_base64(plaintext)}</p>
-
-        <h2>Secretpath Payload</h2>
-        <p>${bytes_to_base64(ciphertext)}</p>
-
-        <h2>Payload Hash</h2>
-        <p>${bytes_to_base64(payloadHash)}<p>
-        `;
-
-    console.log(`Payload Signature: ${payloadSignature}`);
-    document.querySelector<HTMLDivElement>("#preview")!.innerHTML = `
-        <h2>Raw Payload</h2>
-        <p>${bytes_to_base64(plaintext)}</p>
-
-        <h2>TNLS Payload</h2>
-        <p>${bytes_to_base64(ciphertext)}</p>
-
-        <h2>Payload Hash</h2>
-        <p>${bytes_to_base64(payloadHash)}<p>
-
-        <h2>Payload Signature</h2>
-        <p>${bytes_to_base64(payloadSignature.signature)}<p>
-        `;
 
     console.log(`_userAddress: ${provider.publicKey.toBase58()}
         _routingInfo: ${routing_contract} 
@@ -228,7 +237,7 @@ export function setupSubmit(element: HTMLButtonElement) {
         <h2>Raw Payload</h2>
         <p>${JSON.stringify(payload)}</p>
 
-        <h2>TNLS Payload</h2>
+        <h2>Secretpath Payload</h2>
         <p>${bytes_to_base64(ciphertext)}</p>
 
         <h2>Payload Hash</h2>
