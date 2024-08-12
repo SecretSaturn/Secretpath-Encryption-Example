@@ -89,17 +89,22 @@ export function setupSubmit(element: HTMLButtonElement) {
       program.programId
     );
     // Derive the Tasks PDA / Programm Derived Address
-     const [tasks_pda, task_bump] = web3.PublicKey.findProgramAddressSync(
+    const [tasks_pda, task_bump] = web3.PublicKey.findProgramAddressSync(
       [Buffer.from("task_state")],
       program.programId
     );
 
-    //Include the some address as a test (not needed here, you can add whatever you need to have for your dApp)
-    const testAddress = new web3.PublicKey(
+    // Include the some address as a test (not needed here, you can add whatever you need to have for your dApp)
+    // Include some address as a test (not needed here, you can add whatever you need for your dApp)
+    const testAddress1 = new web3.PublicKey(
       "HZy2bXo1NmcTWURJvk9c8zofqE2MUvpu7wU722o7gtEN"
     );
+    const testAddress2 = new web3.PublicKey(
+      "GPuidhXoR6PQ5skXEdrnJehYbffCXfLDf7pcnxH2EW7P"
+    );
     const callbackAddress = Buffer.concat([
-      testAddress.toBuffer(),
+      testAddress1.toBuffer(),
+      testAddress2.toBuffer(),
     ]).toString("base64");
 
     //This is an empty callback for the sake of having a callback in the sample code.
