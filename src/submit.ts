@@ -19,12 +19,12 @@ export function setupSubmit(element: HTMLButtonElement) {
   const task_destination_network = "pulsar-3";
 
   //Gateway Encryption key for ChaCha20-Poly1305 Payload encryption
-  const gatewayPublicKey = "AvDD5gDH97PEg96+j5ioOcLZMjDY+Fezwpjch2PCCK/N";
+  const gatewayPublicKey = "A20KrD7xDmkFXpNMqJn1CLpRaDLcdKpO1NdBBS7VpWh3";
   const gatewayPublicKeyBytes = base64_to_bytes(gatewayPublicKey);
 
-  const routing_contract = "secret15n9rw7leh9zc64uqpfxqz2ap3uz4r90e0uz3y3"; //the contract you want to call in secret
+  const routing_contract = "secret1cknezaxnzfys2w8lyyrr7fed9wxejvgq7alhqx"; //the contract you want to call in secret
   const routing_code_hash =
-    "931a6fa540446ca028955603fa4b924790cd3c65b3893196dc686de42b833f9c"; //its codehash
+    "0b9395a7550b49d2b8ed73497fd2ebaf896c48950c4186e491ded6d22e58b8c3"; //its codehash
 
   element.addEventListener("click", async function (event: Event) {
     event.preventDefault();
