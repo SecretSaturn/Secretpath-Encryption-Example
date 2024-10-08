@@ -34,7 +34,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <form name="inputForm">
       <br>
       <label for="input1">Number of Random Words (up to 2000)</label>
-      <input type="number" value="20" id="input1" name="input1"/>
+      <input type="number" value="18" id="input1" name="input1"/>
       <br>
       <br>
       <label for="input2">Callback gas limit</label>

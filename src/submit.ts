@@ -18,41 +18,46 @@ export function setupSubmit(element: HTMLButtonElement) {
 
   const task_destination_network = "pulsar-3";
 
-  //Gateway Encryption key for ChaCha20-Poly1305 Payload encryption
+  // Gateway Encryption key for ChaCha20-Poly1305 Payload encryption
   const gatewayPublicKey = "A20KrD7xDmkFXpNMqJn1CLpRaDLcdKpO1NdBBS7VpWh3";
   const gatewayPublicKeyBytes = base64_to_bytes(gatewayPublicKey);
 
-  const routing_contract = "secret1cknezaxnzfys2w8lyyrr7fed9wxejvgq7alhqx"; //the contract you want to call in secret
+  const routing_contract =
+    "secret1cknezaxnzfys2w8lyyrr7fed9wxejvgq7alhqx"; // the contract you want to call in Secret Network
   const routing_code_hash =
-    "0b9395a7550b49d2b8ed73497fd2ebaf896c48950c4186e491ded6d22e58b8c3"; //its codehash
+    "0b9395a7550b49d2b8ed73497fd2ebaf896c48950c4186e491ded6d22e58b8c3"; // its codehash
 
   element.addEventListener("click", async function (event: Event) {
     event.preventDefault();
 
     const network = "https://api.devnet.solana.com";
     const connection = new Connection(network, "processed");
-    // Check for Phantom wallet
+
+    // Check for any Solana wallet
     const getProvider = () => {
       if ("solana" in window) {
         const provider = window.solana as any;
-        if (provider.isPhantom) {
-          return provider;
-        }
+        return provider;
       }
-      window.open("https://phantom.app/", "_blank");
+      window.open("https://docs.solana.com/wallet-guide", "_blank");
     };
 
     const provider = getProvider();
     if (!provider) {
-      console.error("Phantom wallet not found");
+      console.error("Solana wallet not found");
+      return;
     } else {
       await provider.connect(); // Connect to the wallet
     }
 
     const wallet = {
       publicKey: provider.publicKey,
-      signTransaction: provider.signTransaction.bind(provider),
-      signAllTransactions: provider.signAllTransactions.bind(provider),
+      signTransaction: provider.signTransaction
+        ? provider.signTransaction.bind(provider)
+        : undefined,
+      signAllTransactions: provider.signAllTransactions
+        ? provider.signAllTransactions.bind(provider)
+        : undefined,
     };
 
     const anchorProvider = new AnchorProvider(connection, wallet, {
@@ -61,7 +66,7 @@ export function setupSubmit(element: HTMLButtonElement) {
     //@ts-ignore
     const program = new Program(idl, anchorProvider);
 
-    //Generating ephemeral keys
+    // Generating ephemeral keys
     const walletEpheremal = ethers.Wallet.createRandom();
     const userPrivateKeyBytes = Buffer.from(
       walletEpheremal.privateKey.slice(2),
@@ -75,26 +80,34 @@ export function setupSubmit(element: HTMLButtonElement) {
       ecdh(userPrivateKeyBytes, gatewayPublicKeyBytes)
     );
 
-    const numWords = document.querySelector<HTMLFormElement>("#input1")?.value;
+    const numWordsInput = document.querySelector<HTMLInputElement>("#input1")
+      ?.value;
     const callback_gas_limit =
-      document.querySelector<HTMLFormElement>("#input2")?.value;
+      document.querySelector<HTMLInputElement>("#input2")?.value;
+
+    // Add check for numWords not exceeding 18
+    const numWords = Number(numWordsInput);
+    if (numWords > 18) {
+      alert("numWords cannot be greater than 18");
+      return;
+    }
 
     const data = JSON.stringify({
-      numWords: Number(numWords),
+      numWords: numWords,
     });
 
-    // Derive the Gateway PDA / Programm Derived Address
-    const [gateway_pda, gateway_bump] = web3.PublicKey.findProgramAddressSync(
-      [Buffer.from("gateway_state")],
-      program.programId
-    );
-    // Derive the Tasks PDA / Programm Derived Address
+    // Derive the Gateway PDA / Program Derived Address
+    const [gateway_pda, gateway_bump] =
+      web3.PublicKey.findProgramAddressSync(
+        [Buffer.from("gateway_state")],
+        program.programId
+      );
+    // Derive the Tasks PDA / Program Derived Address
     const [tasks_pda, task_bump] = web3.PublicKey.findProgramAddressSync(
       [Buffer.from("task_state")],
       program.programId
     );
 
-    // Include the some address as a test (not needed here, you can add whatever you need to have for your dApp)
     // Include some address as a test (not needed here, you can add whatever you need for your dApp)
     const testAddress1 = new web3.PublicKey(
       "HZy2bXo1NmcTWURJvk9c8zofqE2MUvpu7wU722o7gtEN"
@@ -107,14 +120,13 @@ export function setupSubmit(element: HTMLButtonElement) {
       testAddress2.toBuffer(),
     ]).toString("base64");
 
-    //This is an empty callback for the sake of having a callback in the sample code.
-    //Here, you would put your callback selector for you contract in.
-
+    // This is an empty callback for the sake of having a callback in the sample code.
+    // Here, you would put your callback selector for you contract in.
     // 8 bytes of the function Identifier = CallbackTest in the SecretPath Solana Contract
     const functionIdentifier = [196, 61, 185, 224, 30, 229, 25, 52];
     const programId = program.programId.toBuffer();
 
-    //Callback Selector is ProgramId (32 bytes) + function identifier (8 bytes) concatinated
+    // Callback Selector is ProgramId (32 bytes) + function identifier (8 bytes) concatenated
     const callbackSelector = Buffer.concat([
       programId,
       Buffer.from(functionIdentifier),
@@ -122,10 +134,10 @@ export function setupSubmit(element: HTMLButtonElement) {
 
     const callbackGasLimit = Number(callback_gas_limit);
 
-    //the function name of the function that is called on the private contract
+    // The function name of the function that is called on the private contract
     const handle = "request_random";
 
-    //payload data that are going to be encrypted
+    // Payload data that are going to be encrypted
     const payload = {
       data: data,
       routing_info: routing_contract,
@@ -137,14 +149,13 @@ export function setupSubmit(element: HTMLButtonElement) {
       callback_gas_limit: callbackGasLimit,
     };
 
-    //build a Json of the payload
+    // Build a JSON of the payload
     const plaintext = json_to_bytes(payload);
 
-    //generate a nonce for ChaCha20-Poly1305 encryption
-    //DO NOT skip this, stream cipher encryptions are only secure with a random nonce!
+    // Generate a nonce for ChaCha20-Poly1305 encryption
     const nonce = crypto.getRandomValues(new Uint8Array(12));
 
-    //Encrypt the payload using ChachaPoly1305 and concat the ciphertext+tag to fit the Rust ChaChaPoly1305 requirements
+    // Encrypt the payload using ChachaPoly1305 and concatenate the ciphertext + tag
     const [ciphertextClient, tagClient] = chacha20_poly1305_seal(
       sharedKey,
       nonce,
@@ -152,55 +163,46 @@ export function setupSubmit(element: HTMLButtonElement) {
     );
     const ciphertext = concat([ciphertextClient, tagClient]);
 
-    //This is the payload hash
+    // This is the payload hash
     const payloadHash = Buffer.from(keccak256.arrayBuffer(ciphertext));
 
+    // Display raw payload and encrypted payload
     document.querySelector<HTMLDivElement>("#preview")!.innerHTML = `
-    <h2>Raw Payload</h2>
-    <p>${JSON.stringify(payload)}</p>
+      <h2>Raw Payload</h2>
+      <p>${JSON.stringify(payload)}</p>
 
-    <h2>Secretpath Payload</h2>
-    <p>${bytes_to_base64(ciphertext)}</p>
+      <h2>Secretpath Payload</h2>
+      <p>${bytes_to_base64(ciphertext)}</p>
 
-    <h2>Payload Hash</h2>
-    <p>${bytes_to_base64(payloadHash)}<p>
+      <h2>Payload Hash</h2>
+      <p>${bytes_to_base64(payloadHash)}</p>
     `;
 
     // Sign the message, which is the Base64 String of the Payload Hash
-    // (and NOT) directly the payloadHash bytes (which is forbidden with Solana's signMessage method)
     const payloadHashBase64 = Buffer.from(payloadHash.toString("base64"));
     const payloadSignature = await provider.signMessage(payloadHashBase64);
 
-    document.querySelector<HTMLDivElement>("#preview")!.innerHTML = `
-        <h2>Raw Payload</h2>
-        <p>${JSON.stringify(payload)}</p>
-
-        <h2>Secretpath Payload</h2>
-        <p>${bytes_to_base64(ciphertext)}</p>
-
-        <h2>Payload Hash</h2>
-        <p>${bytes_to_base64(payloadHash)}<p>
-
-        <h2>Payload Signature</h2>
-        <p>${bytes_to_base64(payloadSignature.signature)}<p>
-        `;
+    document.querySelector<HTMLDivElement>("#preview")!.innerHTML += `
+      <h2>Payload Signature</h2>
+      <p>${bytes_to_base64(payloadSignature.signature)}</p>
+    `;
 
     const executionInfo = {
-      userKey: Buffer.from(userPublicKeyBytes), // Replace with actual user key
-      userPubkey: payloadSignature.publicKey.toBuffer(), // Replace with actual user pubkey
+      userKey: Buffer.from(userPublicKeyBytes),
+      userPubkey: payloadSignature.publicKey.toBuffer(),
       routingCodeHash: routing_code_hash,
       taskDestinationNetwork: task_destination_network,
       handle: handle,
-      nonce: Buffer.from(nonce), // Replace with actual nonce
-      callbackGasLimit: callback_gas_limit, // Replace with actual gas limit
-      payload: Buffer.from(ciphertext), // Ensure payload is a Buffer
-      payloadSignature: payloadSignature.signature, // Replace with actual payload signature, as a Buffer
+      nonce: Buffer.from(nonce),
+      callbackGasLimit: callbackGasLimit,
+      payload: Buffer.from(ciphertext),
+      payloadSignature: payloadSignature.signature,
     };
 
-    //Get the latest blockhash
+    // Get the latest blockhash
     const { blockhash } = await connection.getLatestBlockhash("confirmed");
 
-    //construct the transaction
+    // Construct the transaction
     const tx = await program.methods
       .send(provider.publicKey, routing_contract, executionInfo)
       .accounts({
@@ -211,61 +213,46 @@ export function setupSubmit(element: HTMLButtonElement) {
       })
       .transaction();
 
-    // Set the recent blockhash
+    // Set the recent blockhash and fee payer
     tx.recentBlockhash = blockhash;
     tx.feePayer = provider.publicKey;
 
-    // Sign the transaction using Phantom wallet
+    // Sign the transaction using the wallet
     const signedTx = await provider.signTransaction(tx);
 
     // Send the signed transaction
     const signature = await connection.sendRawTransaction(signedTx.serialize());
 
     const strategy = {
-      signature: signature, // Your transaction signature
-      // Add any additional parameters for the strategy if needed
+      signature: signature,
     };
 
     await connection.confirmTransaction(strategy as any);
 
-    console.log("Final result after rpc:", tx);
+    console.log("Final result after RPC:", tx);
 
     console.log(`_userAddress: ${provider.publicKey.toBase58()}
-        _routingInfo: ${routing_contract} 
-        _payloadHash: ${bytes_to_base64(payloadHash)} 
+        _routingInfo: ${routing_contract}
+        _payloadHash: ${bytes_to_base64(payloadHash)}
         _info: ${JSON.stringify(executionInfo)}
-        _callbackAddress: ${callbackAddress},
-        _callbackSelector: ${bytes_to_base64(callbackSelector)} ,
+        _callbackAddress: ${callbackAddress}
+        _callbackSelector: ${bytes_to_base64(callbackSelector)}
         _callbackGasLimit: ${callbackGasLimit}`);
 
-    document.querySelector<HTMLDivElement>("#preview")!.innerHTML = `
-        <h2>Raw Payload</h2>
-        <p>${JSON.stringify(payload)}</p>
-
-        <h2>Secretpath Payload</h2>
-        <p>${bytes_to_base64(ciphertext)}</p>
-
-        <h2>Payload Hash</h2>
-        <p>${bytes_to_base64(payloadHash)}<p>
-
-        <h2>Payload Signature</h2>
-        <p>${bytes_to_base64(payloadSignature.signature)}<p>
-
-        <h2>Other Info</h2>
-        <p>
-
+    document.querySelector<HTMLDivElement>("#preview")!.innerHTML += `
+      <h2>Other Info</h2>
+      <p>
         <b>Public key used during encryption:</b> ${bytes_to_base64(
           userPublicKeyBytes
-        )} <br>
-        <b>Nonce used during encryption:</b> ${bytes_to_base64(nonce)} <br>
+        )}<br>
+        <b>Nonce used during encryption:</b> ${bytes_to_base64(nonce)}<br>
+      </p>
 
-        </p>
-
-        <h2>Transaction Parameters</h2>
-        <p><b>Tx Hash: </b><a href="https://solscan.io/tx/${signature}?cluster=devnet" target="_blank">${signature}</a></p>
-        <p><b>Gateway Address (to check the postExecution callback) </b><a href="https://solscan.io/account/${
-          program.programId
-        }?cluster=devnet" target="_blank">${program.programId}</a></p>
-        `;
+      <h2>Transaction Parameters</h2>
+      <p><b>Tx Hash: </b><a href="https://solscan.io/tx/${signature}?cluster=devnet" target="_blank">${signature}</a></p>
+      <p><b>Gateway Address (to check the postExecution callback): </b><a href="https://solscan.io/account/${
+        program.programId
+      }?cluster=devnet" target="_blank">${program.programId}</a></p>
+    `;
   });
 }
