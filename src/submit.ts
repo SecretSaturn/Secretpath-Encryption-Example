@@ -14,8 +14,11 @@ import { keccak256 } from "js-sha3";
 import { SigningKey, ethers } from "ethers";
 
 export function setupSubmit(element: HTMLButtonElement) {
-  // create the abi interface and encode the function data
 
+  // functionSelector in EVM: 0xAB0F00AA 
+  // functionIdentifier in Solana: 0xAB0F00AAAB0F00AA (in hex), [u8, u8, u8, u8, u8, u8, u8, u8]
+  
+  // Pulsar-3 is Secret Network's testnet
   const task_destination_network = "pulsar-3";
 
   // Gateway Encryption key for ChaCha20-Poly1305 Payload encryption
@@ -63,6 +66,7 @@ export function setupSubmit(element: HTMLButtonElement) {
     const anchorProvider = new AnchorProvider(connection, wallet, {
       preflightCommitment: "processed",
     });
+
     //@ts-ignore
     const program = new Program(idl, anchorProvider);
 
@@ -79,7 +83,9 @@ export function setupSubmit(element: HTMLButtonElement) {
     const sharedKey = await sha256(
       ecdh(userPrivateKeyBytes, gatewayPublicKeyBytes)
     );
+    // ecdh(userPublicKeyBytes, gatewayPrivateKeyBytes)
 
+    // 32 byte chunks of random words, 18 random words * 32 bytes = 576 bytes
     const numWordsInput = document.querySelector<HTMLInputElement>("#input1")
       ?.value;
     const callback_gas_limit =
@@ -92,21 +98,30 @@ export function setupSubmit(element: HTMLButtonElement) {
       return;
     }
 
+    // Pack the JSON with the data
     const data = JSON.stringify({
       numWords: numWords,
     });
+
+    // Gateway Task contains the Task ID. 
 
     // Derive the Gateway PDA / Program Derived Address
     const [gateway_pda, gateway_bump] =
       web3.PublicKey.findProgramAddressSync(
         [Buffer.from("gateway_state")],
         program.programId
-      );
+    );
+    
+    // Task contains the payload_hash & boolean if task was completed. 
+
     // Derive the Tasks PDA / Program Derived Address
     const [tasks_pda, task_bump] = web3.PublicKey.findProgramAddressSync(
       [Buffer.from("task_state")],
       program.programId
     );
+
+    // Callback Addresses/Account include ALL to be accessed accounts by you. 
+    // Secretpath will include the gateway_state, task_state and program_id of the CPI by itself.
 
     // Include some address as a test (not needed here, you can add whatever you need for your dApp)
     const testAddress1 = new web3.PublicKey(
@@ -119,17 +134,17 @@ export function setupSubmit(element: HTMLButtonElement) {
       testAddress1.toBuffer(),
       testAddress2.toBuffer(),
     ]).toString("base64");
-
+    
     // This is an empty callback for the sake of having a callback in the sample code.
     // Here, you would put your callback selector for you contract in.
     // 8 bytes of the function Identifier = CallbackTest in the SecretPath Solana Contract
     const functionIdentifier = [196, 61, 185, 224, 30, 229, 25, 52];
     const programId = program.programId.toBuffer();
 
-    // Callback Selector is ProgramId (32 bytes) + function identifier (8 bytes) concatenated
+    // Callback Selector is ProgramId (32 bytes) + function identifier (8 bytes) concatenated, total: 40 bytes
     const callbackSelector = Buffer.concat([
-      programId,
-      Buffer.from(functionIdentifier),
+      programId, //32 bytes
+      Buffer.from(functionIdentifier), //8 bytes
     ]);
 
     const callbackGasLimit = Number(callback_gas_limit);
@@ -153,6 +168,7 @@ export function setupSubmit(element: HTMLButtonElement) {
     const plaintext = json_to_bytes(payload);
 
     // Generate a nonce for ChaCha20-Poly1305 encryption
+    // For the demo: use just zeroes for the nonce. Please use a random number here!
     const nonce = crypto.getRandomValues(new Uint8Array(12));
 
     // Encrypt the payload using ChachaPoly1305 and concatenate the ciphertext + tag
