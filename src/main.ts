@@ -1,17 +1,21 @@
 import './style.css'
 import { setupConnect } from './connect'
 import { setupSubmit } from './submit'
+import { Buffer } from 'buffer';
+
+// Polyfill Buffer for browser environment
+window.Buffer = Buffer;
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 <header>
-  <h1>Atbash Labs x Secret Network</h1>
+  <h1>Secret Network for Solana</h1>
   <div id="links">
     <a href="https://uploads-ssl.webflow.com/632b43ea48475213272bcef4/632dd73d6dfc1b0cba06bbd6_Snakepath_whitepaper.pdf" target="_blank">
     <div class="card">
       Whitepaper
     </div>
     </a>
-    <a href="https://github.com/SecretSaturn/TNLS" target="_blank">
+    <a href="https://github.com/SecretSaturn/SecretPath" target="_blank">
     <div class="card">
       GitHub
     </div>
@@ -30,11 +34,11 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <form name="inputForm">
       <br>
       <label for="input1">Number of Random Words (up to 2000)</label>
-      <input type="number" value="50" id="input1" name="input1"/>
+      <input type="number" value="18" id="input1" name="input1"/>
       <br>
       <br>
       <label for="input2">Callback gas limit</label>
-      <input type="number" value="300000" id="input2" name="input2" />
+      <input type="number" value="500000" id="input2" name="input2" />
       <br>
 
     </div>

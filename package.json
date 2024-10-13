@@ -12,15 +12,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@coral-xyz/anchor": "^0.30.0",
+    "@solana/web3.js": "^1.93.0",
     "@solar-republic/cosmos-grpc": "^0.14.2",
     "@solar-republic/neutrino": "^1.0.8",
-    "ethers": "^5.7.2",
-    "secure-random": "^1.1.2"
+    "buffer": "^6.0.3",
+    "ethers": "^6.13.1",
+    "js-sha3": "^0.9.3"
   },
   "devDependencies": {
     "@rushstack/eslint-patch": "^1.1.4",
     "@types/node": "^16.11.47",
-    "@types/secure-random": "^1.1.0",
     "eslint": "^8.21.0",
     "eslint-plugin-vue": "^9.3.0",
     "prettier": "^2.7.1",
